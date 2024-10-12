@@ -1001,7 +1001,7 @@ Resources:
   # S3 Bucket for bootstrap output
   C9OutputBucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Delete
+    DeletionPolicy: Retain
 
   # IAM Role for Cloud9
   C9Role:
