@@ -5,8 +5,8 @@ if [ -z "$HOME" ]; then
     export HOME=$(getent passwd $(id -un) | cut -d: -f6)
 fi
 
-export DefaultCodeRepository="https://github.com/aws-samples/aurora-postgresql-pgvector.git"
-export PROJ_NAME="aurora-postgresql-pgvector"
+export DefaultCodeRepository="https://github.com/aws-samples/DAT301-shayons.git"
+export PROJ_NAME="DAT301"
 export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
@@ -72,7 +72,7 @@ function configure_pg()
     echo "Current IAM role:"
     aws sts get-caller-identity
 
-    DB_CLUSTER_ID="apgpg-pgvector"
+    DB_CLUSTER_ID="apg-pgvector-RIV"
     echo "Retrieving DB endpoint for cluster: $DB_CLUSTER_ID"
     PGHOST=$(aws rds describe-db-cluster-endpoints \
         --db-cluster-identifier $DB_CLUSTER_ID \
@@ -88,7 +88,7 @@ function configure_pg()
     echo "DB Host: $PGHOST"
     
     # Retrieve credentials from Secrets Manager
-    SECRET_NAME="apgpg-pgvector-secret"
+    SECRET_NAME="apg-pgvector-secret-RIV"
     echo "Retrieving secret: $SECRET_NAME"
     CREDS=$(aws secretsmanager get-secret-value \
         --secret-id $SECRET_NAME \
@@ -244,7 +244,6 @@ function check_installation()
     fi
     echo "=================================="
 }
-
 
 function cp_logfile()
 {
