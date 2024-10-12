@@ -979,7 +979,7 @@ Resources:
               - |
                 #!/bin/bash
                 cd /home/ec2-user/environment
-                wget https://raw.githubusercontent.com/aws-samples/aurora-postgresql-pgvector/refs/heads/main/scripts/prereq.sh -O prereq.sh
+                wget https://raw.githubusercontent.com/aws-samples/DAT301-shayons/refs/heads/main/utils/prereq.sh -O prereq.sh
                 chmod +x prereq.sh
                 ./prereq.sh > prereq.log 2>&1
                 echo "Bootstrap completed with return code $?"
