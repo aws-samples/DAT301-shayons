@@ -35,7 +35,7 @@ Parameters:
     Type: String
 
   DefaultCodeRepository:
-    Default: https://github.com/aws-samples/aurora-postgresql-pgvector.git
+    Default: https://github.com/aws-samples/DAT301-shayons.git
     Type: String
 
   DBEngineVersion:
