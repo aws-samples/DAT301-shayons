@@ -6,8 +6,8 @@ import streamlit as st
 import uuid
 
 # Get config from environment variables
-agent_id = os.environ.get('AGENT_ID', 'FGHZDGD18V')
-agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', '0AVFFPQBTT')
+agent_id = os.environ.get('AGENT_ID', 'NKCA7V4HIB')
+agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', 'ST5LTQMFEG')
 
 @st.cache_data
 def init_state():
