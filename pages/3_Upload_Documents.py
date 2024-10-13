@@ -27,14 +27,14 @@ def upload_file(file_name, renamed_file_name):
         st.markdown(f"Error: {str(e)}")
 
 def main():
-    st.set_page_config(page_title="Upload Documents - Bellagio Bazaar", page_icon="📄", layout="wide")
+    st.set_page_config(page_title="Upload Documents - Blaize Bazaar", page_icon="📄", layout="wide")
     st.subheader('Upload Documents to Bedrock Knowledge Base', divider='orange')
     
-    logo_url = "static/bellagio.png"
+    logo_url = "static/Blaize.png"
     st.sidebar.image(logo_url, use_column_width=True)
     
     st.sidebar.title('**About**')
-    st.sidebar.info("This page allows you to upload documents (PDF or CSV) to the Bedrock Knowledge Base for Bellagio Bazaar.")
+    st.sidebar.info("This page allows you to upload documents (PDF or CSV) to the Bedrock Knowledge Base for Blaize Bazaar.")
 
     document = st.file_uploader("Upload Documents (PDF or CSV)", type=['pdf', 'csv'], key='file')
 

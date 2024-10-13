@@ -17,8 +17,7 @@ load_dotenv()
 bedrock = boto3.client(service_name='bedrock-runtime')
 
 # Constants and configurations
-LOGO_URL = "static/bellagio.png"
-BACKGROUND_IMAGE = 'static/dark-grunge-style-scratched-metal-surface.jpg'
+LOGO_URL = "static/Blaize.png"
 CLAUDE_MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
 
 # Helper functions
@@ -27,19 +26,6 @@ def get_base64_of_bin_file(bin_file):
     with open(bin_file, "rb") as f:
         data = f.read()
         return base64.b64encode(data).decode()
-
-@st.cache_data
-def set_png_as_page_bg(png_file):
-    bin_str = get_base64_of_bin_file(png_file)
-    page_bg_img = f"""
-    <style>
-     .stApp {{
-        background-image: url("data:image/jpg;base64,{bin_str}");
-        background-size: cover;
-        }}
-    </style>
-    """
-    st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # Database functions
 def get_db_connection():
@@ -240,9 +226,8 @@ def show_product_recommendations():
             st.error("Failed to generate personalized recommendations. Please try again later.")
 
 def main():
-    st.set_page_config(page_title="Product Recommendations - Bellagio Bazaar", page_icon="🛍️", layout="wide")
-    st.subheader('Product Recommendations - Bellagio Bazaar', divider='orange')
-    set_png_as_page_bg(BACKGROUND_IMAGE)
+    st.set_page_config(page_title="Product Recommendations - Blaize Bazaar", page_icon="🛍️", layout="wide")
+    st.subheader('Product Recommendations - Blaize Bazaar', divider='orange')
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("This page provides product recommendations using AI-powered similarity search and analysis, comparing traditional keyword-based search with semantic search.")

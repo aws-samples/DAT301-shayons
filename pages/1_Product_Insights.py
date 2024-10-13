@@ -23,8 +23,7 @@ bedrock = boto3.client(
 )
 
 # Constants and configurations
-LOGO_URL = "static/bellagio.png"
-BACKGROUND_IMAGE = 'static/dark-grunge-style-scratched-metal-surface.jpg'
+LOGO_URL = "static/Blaize.png"
 CLAUDE_MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"  # Update this to the Bedrock model ID for Claude
 
 # Helper functions
@@ -33,19 +32,6 @@ def get_base64_of_bin_file(bin_file):
     with open(bin_file, "rb") as f:
         data = f.read()
         return base64.b64encode(data).decode()
-
-@st.cache_data
-def set_png_as_page_bg(png_file):
-    bin_str = get_base64_of_bin_file(png_file)
-    page_bg_img = f"""
-    <style>
-     .stApp {{
-        background-image: url("data:image/jpg;base64,{bin_str}");
-        background-size: cover;
-        }}
-    </style>
-    """
-    st.markdown(page_bg_img, unsafe_allow_html=True)
 
 # Database functions
 def get_db_connection():
@@ -344,8 +330,7 @@ def show_product_insights():
 
 def main():
     st.set_page_config(page_title="Product Insights", page_icon="📊", layout="wide")
-    st.subheader('Product Insights - Bellagio Bazaar', divider='orange')
-    set_png_as_page_bg(BACKGROUND_IMAGE)
+    st.subheader('Product Insights - Blaize Bazaar', divider='orange')
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("This page provides comprehensive product insights using AI-powered analysis.")
