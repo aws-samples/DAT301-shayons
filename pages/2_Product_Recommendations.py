@@ -14,7 +14,9 @@ import time
 load_dotenv()
 
 # Initialize Bedrock client
-bedrock = boto3.client(service_name='bedrock-runtime')
+bedrock = boto3.client(
+    service_name='bedrock-runtime', region_name=os.environ.get('AWS_REGION')
+)
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
