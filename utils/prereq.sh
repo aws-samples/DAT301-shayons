@@ -6,7 +6,7 @@ if [ -z "$HOME" ]; then
 fi
 
 export DefaultCodeRepository="https://github.com/aws-samples/DAT301-shayons.git"
-export PROJ_NAME="DAT301"
+export PROJ_NAME="DAT301-shayons"
 export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
@@ -14,15 +14,15 @@ export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 function git_clone()
 {
     local clone_dir="${HOME}/environment"
-    if [ ! -d "$clone_dir" ]; then
-        echo "Creating directory $clone_dir"
-        mkdir -p "$clone_dir"
-    fi
     cd "$clone_dir" || { echo "Failed to change directory to $clone_dir"; return 1; }
-    if [ -d "$PROJ_NAME" ]; then
-        echo "Directory $PROJ_NAME already exists. Removing it before cloning."
-        rm -rf "$PROJ_NAME"
+
+    local repo_name=$(basename "$DefaultCodeRepository" .git)
+
+    if [ -d "$repo_name" ]; then
+        echo "Directory $repo_name already exists. Removing it before cloning."
+        rm -rf "$repo_name" || { echo "Failed to remove existing directory"; return 1; }
     fi
+
     git clone "$DefaultCodeRepository" || { echo "Failed to clone repository"; return 1; }
     echo "Successfully cloned repository"
 }
