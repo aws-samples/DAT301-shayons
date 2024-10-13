@@ -25,6 +25,19 @@ function git_clone()
 
     git clone "$DefaultCodeRepository" || { echo "Failed to clone repository"; return 1; }
     echo "Successfully cloned repository"
+
+    # Change to the newly cloned repository directory
+    cd "$repo_name" || { echo "Failed to change directory to $repo_name"; return 1; }
+
+    # Create virtual environment
+    python3 -m venv "${clone_dir}/venv-blaize-bazaar" || { echo "Failed to create virtual environment"; return 1; }
+
+    # Activate virtual environment and install requirements
+    source "${clone_dir}/venv-blaize-bazaar/bin/activate" || { echo "Failed to activate virtual environment"; return 1; }
+    python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; return 1; }
+    deactivate
+
+    echo "Successfully set up virtual environment and installed requirements"
 }
 
 function print_line()
@@ -266,6 +279,22 @@ function cp_logfile()
 	echo "Failed to copy logfile to bucket ${bucket_name}"
     fi
 }
+
+function activate_venv()
+{
+    local clone_dir="${HOME}/environment"
+    local venv_path="${clone_dir}/venv-blaize-bazaar/bin/activate"
+
+    if [ -f "$venv_path" ]; then
+        echo "Activating virtual environment"
+        source "$venv_path" || { echo "Failed to activate virtual environment"; return 1; }
+        echo "Virtual environment activated successfully"
+    else
+        echo "Virtual environment not found at $venv_path"
+        return 1
+    fi
+}
+
 # Main program starts here
 
 if [ "${1}X" == "-xX" ] ; then
@@ -297,5 +326,8 @@ install_python3
 print_line
 check_installation
 cp_logfile
+
+# Activate virtual environment as the last step
+activate_venv
 
 echo "Process completed at `date`"
