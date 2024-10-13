@@ -216,7 +216,7 @@ function install_python3()
 
     # Install Python 3
     sudo yum remove -y openssl-devel > ${TERM} 2>&1
-    sudo yum install -y gcc openssl11-devel bzip2-devel libffi-devel > ${TERM} 2>&1
+    sudo yum install -y gcc openssl11-devel bzip2-devel libffi-devel sqlite-devel > ${TERM} 2>&1
 
     echo "Checking if python${PYTHON_MAJOR_VERSION} is already installed"
     if command -v python${PYTHON_MAJOR_VERSION} &> /dev/null; then 
