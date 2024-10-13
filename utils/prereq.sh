@@ -275,6 +275,13 @@ else
 fi
 
 echo "Process started at `date`"
+
+# Ensure script runs as ec2-user
+if [ "$(id -u -n)" != "ec2-user" ]; then 
+  sudo -u ec2-user -i "$0" "$@"
+  exit $?
+fi
+
 install_packages
 
 export AWS_REGION=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq .region -r`
