@@ -105,9 +105,9 @@ function install_packages()
 function install_postgresql()
 {
     print_line
-    echo "Installing Postgresql client"
+    echo "Installing PostgreSQL client"
     print_line
-    sudo amazon-linux-extras install -y postgresql14 > ${TERM} 2>&1
+    sudo amazon-linux-extras install -y postgresql15 > ${TERM} 2>&1
     sudo yum install -y postgresql-contrib sysbench > ${TERM} 2>&1
 }
 
