@@ -5,7 +5,7 @@ st.set_page_config(
     page_icon="🔱",
     layout="wide"
 )
-logo_url = "static/bellagio.png"
+logo_url = "static/Blaize.png"
 st.sidebar.image(logo_url, use_column_width=True)
 
 st.header("Welcome to Bellagio Bazaar", divider="orange")

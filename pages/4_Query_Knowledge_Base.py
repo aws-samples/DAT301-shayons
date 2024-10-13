@@ -17,12 +17,10 @@ knowledgeBaseId = os.environ['BEDROCK_KB_ID']
 
 # Define model ARNs
 MODEL_ARNS = {
-        "Claude 3 Haiku": os.environ['CLAUDE_3_HAIKU_ARN'],
-        "Claude 3 Sonnet": os.environ['CLAUDE_3_SONNET_ARN'],
-        "Claude 3.5 Sonnet": os.environ['CLAUDE_3_5_SONNET_ARN'],
+        "Claude 3.5 Sonnet": os.environ['CLAUDE_3_5_SONNET_ARN']
 }
 
-logo_url = "static/bellagio.png"
+logo_url = "static/Blaize.png"
 st.sidebar.image(logo_url, use_column_width=True)
 
 @st.cache_data
@@ -30,22 +28,6 @@ def get_base64_of_bin_file(bin_file):
   with open(bin_file, "rb") as f:
     data = f.read()
     return base64.b64encode(data).decode()
-
-@st.cache_data
-def set_png_as_page_bg(png_file):
-    bin_str = get_base64_of_bin_file(png_file)
-    page_bg_img = f"""
-    <style>
-     .stApp {{
-        background-image: url("data:image/jpg;base64,%s");
-        background-size: cover;
-        }}
-        </style>
-        """ % bin_str
-    st.markdown(page_bg_img, unsafe_allow_html=True)
-    return
-
-set_png_as_page_bg('static/dark-grunge-style-scratched-metal-surface.jpg')
 
 def stream_data(text, delay:float=0.01):
     for word in text.split():
