@@ -34,7 +34,7 @@ S3_KB_BUCKET=your_S3_KB_bucket_here
 # Bedrock configuration
 # Note: Replace these placeholder values with actual values from your CloudFormation output
 BEDROCK_KB_ID=your_knowledge_base_id_here
-BEDROCK_CLAUDE_MODEL_ID=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
+BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
 # Add any other environment variables here
 EOL
     
@@ -107,7 +107,7 @@ function install_postgresql()
     print_line
     echo "Installing PostgreSQL client"
     print_line
-    sudo amazon-linux-extras install -y postgresql15 > ${TERM} 2>&1
+    sudo amazon-linux-extras install -y postgresql16 > ${TERM} 2>&1
     sudo yum install -y postgresql-contrib sysbench > ${TERM} 2>&1
 }
 
