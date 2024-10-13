@@ -14,6 +14,10 @@ export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 function git_clone()
 {
     local clone_dir="${HOME}/environment"
+    if [ ! -d "$clone_dir" ]; then
+        echo "Creating directory $clone_dir"
+        mkdir -p "$clone_dir"
+    fi
     cd "$clone_dir" || { echo "Failed to change directory to $clone_dir"; return 1; }
     if [ -d "$PROJ_NAME" ]; then
         echo "Directory $PROJ_NAME already exists. Removing it before cloning."
