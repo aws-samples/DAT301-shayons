@@ -11,6 +11,37 @@ export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 
+function create_env_file() 
+{
+    local repo_dir="${HOME}/environment/${PROJ_NAME}"
+    local env_file="${repo_dir}/.env"
+    # Ensure we're in the repository directory
+    cd "$repo_dir" || { echo "Failed to change directory to $repo_dir"; return 1; }
+    # Create or overwrite the .env file
+    cat > "$env_file" << EOL
+
+# Database configuration
+DB_HOST=${PGHOST}
+DB_PORT=${PGPORT}
+DB_NAME=${PGDATABASE}
+DB_USER=${PGUSER}
+DB_PASSWORD=${PGPASSWORD}
+    
+# AWS configuration
+AWS_REGION=${AWS_REGION}
+
+# Bedrock configuration
+# Note: Replace these placeholder values with actual values from your CloudFormation output
+BEDROCK_KNOWLEDGE_BASE_ID=your_knowledge_base_id_here
+BEDROCK_CLAUDE_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+# Add any other environment variables here
+EOL
+    
+    echo "Created .env file at $env_file"
+    # Optionally, you can print the contents of the file (be careful with sensitive information)
+    cat "$env_file"
+}
+
 function git_clone()
 {
     local clone_dir="${HOME}/environment"
@@ -28,6 +59,9 @@ function git_clone()
 
     # Change to the newly cloned repository directory
     cd "$repo_name" || { echo "Failed to change directory to $repo_name"; return 1; }
+
+    # Create .env file
+    create_env_file || { echo "Failed to create .env file"; return 1; }
 
     # Create virtual environment
     python3 -m venv "./venv-blaize-bazaar" || { echo "Failed to create virtual environment"; return 1; }
