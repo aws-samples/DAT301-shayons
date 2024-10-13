@@ -30,10 +30,10 @@ function git_clone()
     cd "$repo_name" || { echo "Failed to change directory to $repo_name"; return 1; }
 
     # Create virtual environment
-    python3 -m venv "${clone_dir}/venv-blaize-bazaar" || { echo "Failed to create virtual environment"; return 1; }
+    python3 -m venv "./venv-blaize-bazaar" || { echo "Failed to create virtual environment"; return 1; }
 
     # Activate virtual environment and install requirements
-    source "${clone_dir}/venv-blaize-bazaar/bin/activate" || { echo "Failed to activate virtual environment"; return 1; }
+    source "./venv-blaize-bazaar/bin/activate" || { echo "Failed to activate virtual environment"; return 1; }
     python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; return 1; }
     deactivate
 
@@ -211,6 +211,21 @@ function install_python3()
     echo "Python ${PYTHON_VERSION} installation completed"
 }
 
+function activate_venv()
+{
+    local clone_dir="${HOME}/environment"
+    local repo_name=$(basename "$DefaultCodeRepository" .git)
+    local venv_path="${clone_dir}/${repo_name}/venv-blaize-bazaar/bin/activate"
+
+    if [ -f "$venv_path" ]; then
+        echo "Activating virtual environment"
+        source "$venv_path" || { echo "Failed to activate virtual environment"; return 1; }
+        echo "Virtual environment activated successfully"
+    else
+        echo "Virtual environment not found at $venv_path"
+        return 1
+    fi
+}
 
 function check_installation()
 {
@@ -277,21 +292,6 @@ function cp_logfile()
 	echo "Copied the logfile to bucket ${bucket_name}"
     else
 	echo "Failed to copy logfile to bucket ${bucket_name}"
-    fi
-}
-
-function activate_venv()
-{
-    local clone_dir="${HOME}/environment"
-    local venv_path="${clone_dir}/venv-blaize-bazaar/bin/activate"
-
-    if [ -f "$venv_path" ]; then
-        echo "Activating virtual environment"
-        source "$venv_path" || { echo "Failed to activate virtual environment"; return 1; }
-        echo "Virtual environment activated successfully"
-    else
-        echo "Virtual environment not found at $venv_path"
-        return 1
     fi
 }
 
