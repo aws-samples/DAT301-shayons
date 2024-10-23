@@ -124,7 +124,7 @@ function configure_pg()
     echo "Current IAM role:"
     aws sts get-caller-identity
 
-    DB_CLUSTER_ID="apg-pgvector-RIV"
+    DB_CLUSTER_ID="apg-pgvector-riv"
     echo "Retrieving DB endpoint for cluster: $DB_CLUSTER_ID"
     PGHOST=$(aws rds describe-db-cluster-endpoints \
         --db-cluster-identifier $DB_CLUSTER_ID \
