@@ -978,11 +978,48 @@ Resources:
             runCommand:
               - |
                 #!/bin/bash
-                cd /home/ec2-user/environment
-                wget https://raw.githubusercontent.com/aws-samples/DAT301-shayons/refs/heads/main/utils/prereq.sh -O prereq.sh
-                chmod +x prereq.sh
-                ./prereq.sh > prereq.log 2>&1
-                echo "Bootstrap completed with return code $?"
+                set -e
+
+                # Enable error handling
+                trap 'last_command=$current_command; current_command=$BASH_COMMAND' DEBUG
+                trap 'echo "\"${last_command}\" command failed with exit code $?."' EXIT
+
+                # Set up logging to both /tmp and CloudWatch
+                exec 1> >(tee /tmp/bootstrap.log | logger -t bootstrap)
+                exec 2>&1
+
+                echo "Starting bootstrap process at $(date)"
+                echo "Current working directory: $(pwd)"
+                echo "Running as user: $(whoami)"
+               
+                # Ensure we're in the right directory with proper ownership
+                cd /home/ec2-user/environment || {
+                    echo "Failed to change to /home/ec2-user/environment"
+                    exit 1
+                }
+
+                # Download prereq.sh as ec2-user
+                echo "Downloading prereq.sh..."
+                if ! wget https://raw.githubusercontent.com/aws-samples/DAT301-shayons/refs/heads/main/utils/prereq.sh; then
+                    echo "Failed to download prereq.sh"
+                    exit 1
+                fi
+
+                echo "Setting correct ownership and permissions..."
+                chown ec2-user:ec2-user prereq.sh
+                chmod 755 prereq.sh
+
+                echo "Executing prereq.sh as ec2-user..."
+                if ! runuser -l ec2-user -c 'cd /home/ec2-user/environment && ./prereq.sh'; then
+                    echo "Failed to execute prereq.sh"
+                    exit 1
+                fi
+               
+                echo "Bootstrap completed at $(date) with return code $?"
+               
+                # Disable error traps
+                trap - DEBUG
+                trap - EXIT
 
   # SSM Association
   C9BootstrapAssociation:
@@ -1156,7 +1193,7 @@ Resources:
         Fn::GetAtt:
         - C9LambdaExecutionRole
         - Arn
-      Runtime: python3.9
+      Runtime: python3.11
       MemorySize: 2056
       Timeout: '600'
       Code:

@@ -11,6 +11,30 @@ export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 
+export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+echo "Setting AWS Region to: $AWS_REGION"
+
+export AWSREGION=$AWS_REGION
+
+echo "export AWS_REGION='$AWS_REGION'" >> ~/.bashrc
+echo "export AWSREGION='$AWS_REGION'" >> ~/.bashrc
+source ~/.bashrc
+
+function check_aws_cli()
+{
+    if ! command -v aws &> /dev/null; then
+        echo "AWS CLI is not installed"
+        return 1
+    fi
+   
+    if ! aws sts get-caller-identity &> /dev/null; then
+        echo "AWS CLI is not properly configured or doesn't have proper credentials"
+        return 1
+    fi
+   
+    return 0
+}
+
 function create_env_file() 
 {
     local repo_dir="${HOME}/environment/${PROJ_NAME}"
@@ -80,6 +104,97 @@ function print_line()
     echo "---------------------------------"
 }
 
+function resize_cloud9() {
+    echo "Resizing Cloud9 volume..."
+    # Specify the desired volume size in GiB as a command line argument. If not specified, default to 50 GiB.
+    SIZE=${1:-50}
+
+    # Get the ID of the environment host Amazon EC2 instance.
+    INSTANCEID=$(curl --silent http://169.254.169.254/latest/meta-data/instance-id)
+    echo "Instance ID: $INSTANCEID"
+
+    # Get the ID of the Amazon EBS volume associated with the instance.
+    VOLUMEID=$(aws ec2 describe-instances \
+        --instance-id $INSTANCEID \
+        --query "Reservations[0].Instances[0].BlockDeviceMappings[0].Ebs.VolumeId" \
+        --output text)
+
+    if [ -z "$VOLUMEID" ]; then
+        echo "Error: Failed to get volume ID"
+        return 1
+    fi
+    echo "Volume ID: $VOLUMEID"
+
+    # Check the current volume size
+    CURRENT_VOLSIZE=$(aws ec2 describe-volumes \
+        --volume-ids $VOLUMEID \
+        --query "Volumes[0].Size" \
+        --output text)
+
+    echo "Current volume size: $CURRENT_VOLSIZE GB"
+    echo "Requested volume size: $SIZE GB"
+
+    if [ "$SIZE" -le "$CURRENT_VOLSIZE" ]; then
+        echo "Skipping: Current volume size ($CURRENT_VOLSIZE GB) is greater than or equal to requested size ($SIZE GB)"
+        return 0
+    fi
+
+    echo "Resizing volume..."
+    # Resize the EBS volume.
+    aws ec2 modify-volume --volume-id $VOLUMEID --size $SIZE
+
+    echo "Waiting for resize to complete..."
+    while true; do
+        STATE=$(aws ec2 describe-volumes-modifications \
+            --volume-id $VOLUMEID \
+            --filters Name=modification-state,Values="optimizing","completed" \
+            --query "length(VolumesModifications)" \
+            --output text)
+        
+        if [ "$STATE" = "1" ]; then
+            echo "Volume modification complete"
+            break
+        fi
+        echo "Still waiting..."
+        sleep 1
+    done
+
+    echo "Checking file system..."
+    #Check if we're on an NVMe filesystem
+    if [ "$(readlink -f /dev/xvda)" = "/dev/xvda" ]; then
+        echo "Standard EBS volume detected"
+        # Rewrite the partition table so that the partition takes up all the space that it can.
+        sudo growpart /dev/xvda 1
+        
+        # Expand the size of the file system.
+        # Check if we are on AL2
+        if grep -q "VERSION_ID=\"2\"" /etc/os-release; then
+            echo "Amazon Linux 2 detected, using xfs_growfs"
+            sudo xfs_growfs -d /
+        else
+            echo "Using resize2fs"
+            sudo resize2fs /dev/xvda1
+        fi
+    else
+        echo "NVMe volume detected"
+        # Rewrite the partition table so that the partition takes up all the space that it can.
+        sudo growpart /dev/nvme0n1 1
+        
+        # Expand the size of the file system.
+        # Check if we're on AL2
+        if grep -q "VERSION_ID=\"2\"" /etc/os-release; then
+            echo "Amazon Linux 2 detected, using xfs_growfs"
+            sudo xfs_growfs -d /
+        else
+            echo "Using resize2fs"
+            sudo resize2fs /dev/nvme0n1p1
+        fi
+    fi
+
+    echo "Volume resize completed successfully!"
+    df -h /
+}
+
 function install_packages()
 {
     local current_dir
@@ -87,7 +202,11 @@ function install_packages()
     
     sudo yum install -y jq  > "${TERM}" 2>&1
     print_line
-    source <(curl -s https://raw.githubusercontent.com/aws-samples/aws-swb-cloud9-init/mainline/cloud9-resize.sh)
+    
+    # Resize Cloud9 to 50GB
+    resize_cloud9 50
+    
+    print_line
     echo "Installing aws cli v2"
     print_line
     if aws --version | grep -q "aws-cli/2"; then
@@ -107,8 +226,23 @@ function install_postgresql()
     print_line
     echo "Installing PostgreSQL client"
     print_line
-    sudo amazon-linux-extras install -y postgresql16 > ${TERM} 2>&1
-    sudo yum install -y postgresql-contrib sysbench > ${TERM} 2>&1
+
+    # Update package lists
+    sudo yum update -y > ${TERM} 2>&1
+
+    # Enable PostgreSQL14 as part of amazon-extras library
+
+    sudo amazon-linux-extras enable postgresql14
+    sudo yum install -y postgresql-server > ${TERM} 2>&1
+
+    # Verify installation
+    if command -v psql > /dev/null; then
+        echo "PostgreSQL client installed successfully"
+        psql --version
+    else
+        echo "PostgreSQL installation failed"
+        return 1
+    fi
 }
 
 function configure_pg()
@@ -116,29 +250,33 @@ function configure_pg()
     # Ensure AWS CLI is using the instance profile
     unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
-    # Get the current region from the instance metadata
-    export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-    echo "AWS Region: $AWS_REGION"
-    
+    # Use already set AWS_REGION or fetch from metadata if not set
+    if [ -z "$AWS_REGION" ]; then
+        export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+        echo "AWS Region not set, fetched from metadata: $AWS_REGION"
+    else
+        echo "Using existing AWS Region: $AWS_REGION"
+    fi
+
     # Print current IAM role information
     echo "Current IAM role:"
     aws sts get-caller-identity
 
-    DB_CLUSTER_ID="apg-pgvector-RIV"
+    DB_CLUSTER_ID="apg-pgvector-riv"
     echo "Retrieving DB endpoint for cluster: $DB_CLUSTER_ID"
     PGHOST=$(aws rds describe-db-cluster-endpoints \
         --db-cluster-identifier $DB_CLUSTER_ID \
         --region $AWS_REGION \
         --query 'DBClusterEndpoints[0].Endpoint' \
         --output text)
-    
+
     if [ -z "$PGHOST" ]; then
         echo "Failed to retrieve DB endpoint. Check the cluster identifier and permissions."
         return 1
     fi
     export PGHOST
     echo "DB Host: $PGHOST"
-    
+
     # Retrieve credentials from Secrets Manager
     SECRET_NAME="apg-pgvector-secret-RIV"
     echo "Retrieving secret: $SECRET_NAME"
@@ -155,10 +293,10 @@ function configure_pg()
     CREDS=$(echo "$CREDS" | jq -r '.SecretString')
 
     if [ -z "$CREDS" ]; then
-        echo "Failed to retrieve credentials from Secrets Manager. Check the secret name and permissions."
+        echo "Failed to retrieve credentials from Secrets Manager."
         return 1
     fi
-    
+
     PGPASSWORD=$(echo $CREDS | jq -r '.password')
     PGUSER=$(echo $CREDS | jq -r '.username')
 
@@ -174,38 +312,43 @@ function configure_pg()
 
     # Set environment variables for the current session
     export PGDATABASE=postgres
-    export PGPORT=5432
-    export PGVECTOR_DRIVER='psycopg2'
-    export PGVECTOR_USER=$PGUSER
-    export PGVECTOR_PASSWORD=$PGPASSWORD
-    export PGVECTOR_HOST=$PGHOST
-    export PGVECTOR_PORT=5432
-    export PGVECTOR_DATABASE='postgres'
-
-    # Persist values for future sessions
-    echo "export PGUSER='$PGUSER'" >> ~/.bash_profile
-    echo "export PGPASSWORD='$PGPASSWORD'" >> ~/.bash_profile
-    echo "export PGHOST='$PGHOST'" >> ~/.bash_profile
-    echo "export AWS_REGION='$AWS_REGION'" >> ~/.bash_profile
-    echo "export AWSREGION='$AWS_REGION'" >> ~/.bash_profile
-    echo "export PGDATABASE='postgres'" >> ~/.bash_profile
-    echo "export PGPORT=5432" >> ~/.bash_profile
-    echo "export PGVECTOR_DRIVER='psycopg2'" >> ~/.bash_profile
-    echo "export PGVECTOR_USER='$PGUSER'" >> ~/.bash_profile
-    echo "export PGVECTOR_PASSWORD='$PGPASSWORD'" >> ~/.bash_profile
-    echo "export PGVECTOR_HOST='$PGHOST'" >> ~/.bash_profile
-    echo "export PGVECTOR_PORT=5432" >> ~/.bash_profile
-    echo "export PGVECTOR_DATABASE='postgres'" >> ~/.bash_profile
-
-    echo "Environment variables set and persisted"
-
-    # Test the connection
-    if PGPASSWORD=$PGPASSWORD psql -h $PGHOST -U $PGUSER -d postgres -c "SELECT 1" >/dev/null 2>&1; then
-        echo "Successfully connected to the database."
-    else
-        echo "Failed to connect to the database. Please check your credentials and network settings."
+    export PGPORT=5432  
+    
+    # Test the connection with verbose output
+    echo "Testing database connection..."
+    PGPASSWORD=$PGPASSWORD psql -h $PGHOST -U $PGUSER -d postgres -c "\conninfo" || {
+        echo "Connection test failed. Details:"
+        echo "Host: $PGHOST"
+        echo "User: $PGUSER"
+        echo "Database: postgres"
+        echo "Port: 5432"
         return 1
+    }
+
+    # If connection successful, persist the variables
+    if [ $? -eq 0 ]; then
+        echo "Persisting environment variables..."
+        {
+            echo "export PGUSER='$PGUSER'"
+            echo "export PGPASSWORD='$PGPASSWORD'"
+            echo "export PGHOST='$PGHOST'"
+            echo "export AWS_REGION='$AWS_REGION'"
+            echo "export PGDATABASE='postgres'"
+            echo "export PGPORT=5432"
+            echo "export PGVECTOR_DRIVER='psycopg2'"
+            echo "export PGVECTOR_USER='$PGUSER'"
+            echo "export PGVECTOR_PASSWORD='$PGPASSWORD'"
+            echo "export PGVECTOR_HOST='$PGHOST'"
+            echo "export PGVECTOR_PORT=5432"
+            echo "export PGVECTOR_DATABASE='postgres'"
+        } >> ~/.bash_profile
+
+        source ~/.bash_profile
+        echo "Environment variables set and persisted"
+        return 0
     fi
+
+    return 1
 }
 
 function install_python3()
@@ -264,6 +407,13 @@ function activate_venv()
 
 function check_installation()
 {
+    if [ -z "$AWS_REGION" ]; then
+        echo "AWS Region not set : NOTOK"
+        overall="False"
+    else
+        echo "AWS Region set to $AWS_REGION : OK"
+    fi
+    
     overall="True"
     #Checking postgresql 
     if psql -c "select version()" | grep -q PostgreSQL; then
@@ -346,9 +496,9 @@ if [ "$(id -u -n)" != "ec2-user" ]; then
   exit $?
 fi
 
-install_packages
+check_aws_cli || { echo "AWS CLI check failed"; exit 1; }
+install_packages || { echo "install_packages check failed"; exit 1; }
 
-export AWS_REGION=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq .region -r`
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text) 
 
 print_line
