@@ -11,6 +11,30 @@ export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 
+export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+echo "Setting AWS Region to: $AWS_REGION"
+
+export AWSREGION=$AWS_REGION
+
+echo "export AWS_REGION='$AWS_REGION'" >> ~/.bashrc
+echo "export AWSREGION='$AWS_REGION'" >> ~/.bashrc
+source ~/.bashrc
+
+function check_aws_cli()
+{
+    if ! command -v aws &> /dev/null; then
+        echo "AWS CLI is not installed"
+        return 1
+    fi
+   
+    if ! aws sts get-caller-identity &> /dev/null; then
+        echo "AWS CLI is not properly configured or doesn't have proper credentials"
+        return 1
+    fi
+   
+    return 0
+}
+
 function create_env_file() 
 {
     local repo_dir="${HOME}/environment/${PROJ_NAME}"
@@ -123,9 +147,13 @@ function configure_pg()
     # Ensure AWS CLI is using the instance profile
     unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
 
-    # Get the current region from the instance metadata
-    export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-    echo "AWS Region: $AWS_REGION"
+    # Use already set AWS_REGION or fetch from metadata if not set
+    if [ -z "$AWS_REGION" ]; then
+        export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+        echo "AWS Region not set, fetched from metadata: $AWS_REGION"
+    else
+        echo "Using existing AWS Region: $AWS_REGION"
+    fi
     
     # Print current IAM role information
     echo "Current IAM role:"
@@ -204,6 +232,8 @@ function configure_pg()
     echo "export PGVECTOR_PORT=5432" >> ~/.bash_profile
     echo "export PGVECTOR_DATABASE='postgres'" >> ~/.bash_profile
 
+    source ~/.bash_profile
+
     echo "Environment variables set and persisted"
 
     # Test the connection
@@ -271,6 +301,13 @@ function activate_venv()
 
 function check_installation()
 {
+    if [ -z "$AWS_REGION" ]; then
+        echo "AWS Region not set : NOTOK"
+        overall="False"
+    else
+        echo "AWS Region set to $AWS_REGION : OK"
+    fi
+    
     overall="True"
     #Checking postgresql 
     if psql -c "select version()" | grep -q PostgreSQL; then
@@ -353,7 +390,8 @@ if [ "$(id -u -n)" != "ec2-user" ]; then
   exit $?
 fi
 
-install_packages
+check_aws_cli || { echo "AWS CLI check failed"; exit 1; }
+install_packages || { echo "install_packages check failed"; exit 1; }
 
 export AWS_REGION=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq .region -r`
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text) 
