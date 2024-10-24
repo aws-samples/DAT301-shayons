@@ -223,6 +223,7 @@ function install_packages()
 
 function install_postgresql()
 {
+<<<<<<< HEAD
     print_line
     echo "Installing PostgreSQL client"
     print_line
@@ -243,6 +244,32 @@ function install_postgresql()
         echo "PostgreSQL installation failed"
         return 1
     fi
+=======
+    print_line
+    echo "Installing PostgreSQL client"
+    print_line
+    
+    # Update package lists
+    sudo yum update -y > ${TERM} 2>&1
+    
+    # Install EPEL repository
+    sudo yum install -y epel-release > ${TERM} 2>&1
+    
+    echo "Adding PostgreSQL repository..."
+    sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm > ${TERM} 2>&1
+    
+    echo "Installing PostgreSQL 16 client..."
+    sudo yum install -y postgresql16 postgresql16-libs > ${TERM} 2>&1
+    
+    # Verify installation
+    if command -v psql > /dev/null; then
+        echo "PostgreSQL client installed successfully"
+        psql --version
+    else
+        echo "PostgreSQL installation failed"
+        return 1
+    fi
+>>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
 }
 
 function configure_pg()
@@ -257,7 +284,11 @@ function configure_pg()
     else
         echo "Using existing AWS Region: $AWS_REGION"
     fi
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
     # Print current IAM role information
     echo "Current IAM role:"
     aws sts get-caller-identity
@@ -312,6 +343,7 @@ function configure_pg()
 
     # Set environment variables for the current session
     export PGDATABASE=postgres
+<<<<<<< HEAD
     export PGPORT=5432  
     
     # Test the connection with verbose output
@@ -322,6 +354,40 @@ function configure_pg()
         echo "User: $PGUSER"
         echo "Database: postgres"
         echo "Port: 5432"
+=======
+    export PGPORT=5432
+    export PGVECTOR_DRIVER='psycopg2'
+    export PGVECTOR_USER=$PGUSER
+    export PGVECTOR_PASSWORD=$PGPASSWORD
+    export PGVECTOR_HOST=$PGHOST
+    export PGVECTOR_PORT=5432
+    export PGVECTOR_DATABASE='postgres'
+
+    # Persist values for future sessions
+    echo "export PGUSER='$PGUSER'" >> ~/.bash_profile
+    echo "export PGPASSWORD='$PGPASSWORD'" >> ~/.bash_profile
+    echo "export PGHOST='$PGHOST'" >> ~/.bash_profile
+    echo "export AWS_REGION='$AWS_REGION'" >> ~/.bash_profile
+    echo "export AWSREGION='$AWS_REGION'" >> ~/.bash_profile
+    echo "export PGDATABASE='postgres'" >> ~/.bash_profile
+    echo "export PGPORT=5432" >> ~/.bash_profile
+    echo "export PGVECTOR_DRIVER='psycopg2'" >> ~/.bash_profile
+    echo "export PGVECTOR_USER='$PGUSER'" >> ~/.bash_profile
+    echo "export PGVECTOR_PASSWORD='$PGPASSWORD'" >> ~/.bash_profile
+    echo "export PGVECTOR_HOST='$PGHOST'" >> ~/.bash_profile
+    echo "export PGVECTOR_PORT=5432" >> ~/.bash_profile
+    echo "export PGVECTOR_DATABASE='postgres'" >> ~/.bash_profile
+
+    source ~/.bash_profile
+
+    echo "Environment variables set and persisted"
+
+    # Test the connection
+    if PGPASSWORD=$PGPASSWORD psql -h $PGHOST -U $PGUSER -d postgres -c "SELECT 1" >/dev/null 2>&1; then
+        echo "Successfully connected to the database."
+    else
+        echo "Failed to connect to the database. Please check your credentials and network settings."
+>>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
         return 1
     }
 
@@ -489,6 +555,8 @@ else
 fi
 
 echo "Process started at `date`"
+export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+echo "Setting AWS Region to: $AWS_REGION"
 
 # Ensure script runs as ec2-user
 if [ "$(id -u -n)" != "ec2-user" ]; then 
