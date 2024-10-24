@@ -104,11 +104,18 @@ function install_packages()
 
 function install_postgresql()
 {
-    print_line
-    echo "Installing PostgreSQL client"
-    print_line
-    sudo amazon-linux-extras install -y postgresql16 > ${TERM} 2>&1
-    sudo yum install -y postgresql-contrib sysbench > ${TERM} 2>&1
+    print_line
+    echo "Installing PostgreSQL client"
+    print_line
+    
+    # Add PostgreSQL 16 repository
+    sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm > ${TERM} 2>&1
+    
+    # Install PostgreSQL 16 client
+    sudo yum install -y postgresql16 postgresql16-libs > ${TERM} 2>&1
+    
+    # Create symlink if needed
+    sudo ln -sf /usr/pgsql-16/bin/psql /usr/bin/psql > ${TERM} 2>&1
 }
 
 function configure_pg()
