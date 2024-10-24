@@ -223,30 +223,25 @@ function install_packages()
 
 function install_postgresql()
 {
-    print_line
-    echo "Installing PostgreSQL client"
-    print_line
-    
-    # Update package lists
-    sudo yum update -y > ${TERM} 2>&1
-    
-    # Install EPEL repository
-    sudo yum install -y epel-release > ${TERM} 2>&1
-    
-    echo "Adding PostgreSQL repository..."
-    sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm > ${TERM} 2>&1
-    
-    echo "Installing PostgreSQL 16 client..."
-    sudo yum install -y postgresql16 postgresql16-libs > ${TERM} 2>&1
-    
-    # Verify installation
-    if command -v psql > /dev/null; then
-        echo "PostgreSQL client installed successfully"
-        psql --version
-    else
-        echo "PostgreSQL installation failed"
-        return 1
-    fi
+    print_line
+    echo "Installing PostgreSQL client"
+    print_line
+
+    # Update package lists
+    sudo yum update -y > ${TERM} 2>&1
+
+    # Enable PostgreSQL14 as part of amazon-extras library
+    sudo amazon-linux-extras enable postgresql14
+    sudo yum install -y postgresql-server > ${TERM} 2>&1
+
+    # Verify installation
+    if command -v psql > /dev/null; then
+        echo "PostgreSQL client installed successfully"
+        psql --version
+    else
+        echo "PostgreSQL installation failed"
+        return 1
+    fi
 }
 
 function configure_pg()
@@ -490,8 +485,6 @@ else
 fi
 
 echo "Process started at `date`"
-export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
-echo "Setting AWS Region to: $AWS_REGION"
 
 # Ensure script runs as ec2-user
 if [ "$(id -u -n)" != "ec2-user" ]; then 
