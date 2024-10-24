@@ -227,14 +227,26 @@ function install_postgresql()
     echo "Installing PostgreSQL client"
     print_line
     
-    # Add PostgreSQL 16 repository
+    # Update package lists
+    sudo yum update -y > ${TERM} 2>&1
+    
+    # Install EPEL repository
+    sudo yum install -y epel-release > ${TERM} 2>&1
+    
+    echo "Adding PostgreSQL repository..."
     sudo yum install -y https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm > ${TERM} 2>&1
     
-    # Install PostgreSQL 16 client
+    echo "Installing PostgreSQL 16 client..."
     sudo yum install -y postgresql16 postgresql16-libs > ${TERM} 2>&1
     
-    # Create symlink if needed
-    sudo ln -sf /usr/pgsql-16/bin/psql /usr/bin/psql > ${TERM} 2>&1
+    # Verify installation
+    if command -v psql > /dev/null; then
+        echo "PostgreSQL client installed successfully"
+        psql --version
+    else
+        echo "PostgreSQL installation failed"
+        return 1
+    fi
 }
 
 function configure_pg()
