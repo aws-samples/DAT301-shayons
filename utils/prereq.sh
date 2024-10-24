@@ -383,6 +383,8 @@ else
 fi
 
 echo "Process started at `date`"
+export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+echo "Setting AWS Region to: $AWS_REGION"
 
 # Ensure script runs as ec2-user
 if [ "$(id -u -n)" != "ec2-user" ]; then 
@@ -393,7 +395,6 @@ fi
 check_aws_cli || { echo "AWS CLI check failed"; exit 1; }
 install_packages || { echo "install_packages check failed"; exit 1; }
 
-export AWS_REGION=`curl -s http://169.254.169.254/latest/dynamic/instance-identity/document | jq .region -r`
 export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query "Account" --output text) 
 
 print_line
