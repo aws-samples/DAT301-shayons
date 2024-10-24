@@ -223,28 +223,6 @@ function install_packages()
 
 function install_postgresql()
 {
-<<<<<<< HEAD
-    print_line
-    echo "Installing PostgreSQL client"
-    print_line
-
-    # Update package lists
-    sudo yum update -y > ${TERM} 2>&1
-
-    # Enable PostgreSQL14 as part of amazon-extras library
-
-    sudo amazon-linux-extras enable postgresql14
-    sudo yum install -y postgresql-server > ${TERM} 2>&1
-
-    # Verify installation
-    if command -v psql > /dev/null; then
-        echo "PostgreSQL client installed successfully"
-        psql --version
-    else
-        echo "PostgreSQL installation failed"
-        return 1
-    fi
-=======
     print_line
     echo "Installing PostgreSQL client"
     print_line
@@ -269,7 +247,6 @@ function install_postgresql()
         echo "PostgreSQL installation failed"
         return 1
     fi
->>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
 }
 
 function configure_pg()
@@ -284,11 +261,7 @@ function configure_pg()
     else
         echo "Using existing AWS Region: $AWS_REGION"
     fi
-<<<<<<< HEAD
-
-=======
     
->>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
     # Print current IAM role information
     echo "Current IAM role:"
     aws sts get-caller-identity
@@ -300,14 +273,14 @@ function configure_pg()
         --region $AWS_REGION \
         --query 'DBClusterEndpoints[0].Endpoint' \
         --output text)
-
+    
     if [ -z "$PGHOST" ]; then
         echo "Failed to retrieve DB endpoint. Check the cluster identifier and permissions."
         return 1
     fi
     export PGHOST
     echo "DB Host: $PGHOST"
-
+    
     # Retrieve credentials from Secrets Manager
     SECRET_NAME="apg-pgvector-secret-RIV"
     echo "Retrieving secret: $SECRET_NAME"
@@ -324,10 +297,10 @@ function configure_pg()
     CREDS=$(echo "$CREDS" | jq -r '.SecretString')
 
     if [ -z "$CREDS" ]; then
-        echo "Failed to retrieve credentials from Secrets Manager."
+        echo "Failed to retrieve credentials from Secrets Manager. Check the secret name and permissions."
         return 1
     fi
-
+    
     PGPASSWORD=$(echo $CREDS | jq -r '.password')
     PGUSER=$(echo $CREDS | jq -r '.username')
 
@@ -343,18 +316,6 @@ function configure_pg()
 
     # Set environment variables for the current session
     export PGDATABASE=postgres
-<<<<<<< HEAD
-    export PGPORT=5432  
-    
-    # Test the connection with verbose output
-    echo "Testing database connection..."
-    PGPASSWORD=$PGPASSWORD psql -h $PGHOST -U $PGUSER -d postgres -c "\conninfo" || {
-        echo "Connection test failed. Details:"
-        echo "Host: $PGHOST"
-        echo "User: $PGUSER"
-        echo "Database: postgres"
-        echo "Port: 5432"
-=======
     export PGPORT=5432
     export PGVECTOR_DRIVER='psycopg2'
     export PGVECTOR_USER=$PGUSER
@@ -387,34 +348,8 @@ function configure_pg()
         echo "Successfully connected to the database."
     else
         echo "Failed to connect to the database. Please check your credentials and network settings."
->>>>>>> da8678cadebca92f303213d10af5fd621fcd70be
         return 1
-    }
-
-    # If connection successful, persist the variables
-    if [ $? -eq 0 ]; then
-        echo "Persisting environment variables..."
-        {
-            echo "export PGUSER='$PGUSER'"
-            echo "export PGPASSWORD='$PGPASSWORD'"
-            echo "export PGHOST='$PGHOST'"
-            echo "export AWS_REGION='$AWS_REGION'"
-            echo "export PGDATABASE='postgres'"
-            echo "export PGPORT=5432"
-            echo "export PGVECTOR_DRIVER='psycopg2'"
-            echo "export PGVECTOR_USER='$PGUSER'"
-            echo "export PGVECTOR_PASSWORD='$PGPASSWORD'"
-            echo "export PGVECTOR_HOST='$PGHOST'"
-            echo "export PGVECTOR_PORT=5432"
-            echo "export PGVECTOR_DATABASE='postgres'"
-        } >> ~/.bash_profile
-
-        source ~/.bash_profile
-        echo "Environment variables set and persisted"
-        return 0
     fi
-
-    return 1
 }
 
 function install_python3()
