@@ -373,7 +373,7 @@ function install_python3()
     echo "Building Python (this may take a while)"
     sudo make altinstall > ${TERM} 2>&1 || { echo "Failed to build Python"; return 1; }
     cd /tmp
-    rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tgz
+    sudo rm -rf Python-${PYTHON_VERSION} Python-${PYTHON_VERSION}.tgz
 
     echo "Updating Python symlinks"
     sudo ln -sf /usr/local/bin/python${PYTHON_MAJOR_VERSION} /usr/bin/python3
