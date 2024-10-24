@@ -104,6 +104,97 @@ function print_line()
     echo "---------------------------------"
 }
 
+function resize_cloud9() {
+    echo "Resizing Cloud9 volume..."
+    # Specify the desired volume size in GiB as a command line argument. If not specified, default to 50 GiB.
+    SIZE=${1:-50}
+
+    # Get the ID of the environment host Amazon EC2 instance.
+    INSTANCEID=$(curl --silent http://169.254.169.254/latest/meta-data/instance-id)
+    echo "Instance ID: $INSTANCEID"
+
+    # Get the ID of the Amazon EBS volume associated with the instance.
+    VOLUMEID=$(aws ec2 describe-instances \
+        --instance-id $INSTANCEID \
+        --query "Reservations[0].Instances[0].BlockDeviceMappings[0].Ebs.VolumeId" \
+        --output text)
+
+    if [ -z "$VOLUMEID" ]; then
+        echo "Error: Failed to get volume ID"
+        return 1
+    fi
+    echo "Volume ID: $VOLUMEID"
+
+    # Check the current volume size
+    CURRENT_VOLSIZE=$(aws ec2 describe-volumes \
+        --volume-ids $VOLUMEID \
+        --query "Volumes[0].Size" \
+        --output text)
+
+    echo "Current volume size: $CURRENT_VOLSIZE GB"
+    echo "Requested volume size: $SIZE GB"
+
+    if [ "$SIZE" -le "$CURRENT_VOLSIZE" ]; then
+        echo "Skipping: Current volume size ($CURRENT_VOLSIZE GB) is greater than or equal to requested size ($SIZE GB)"
+        return 0
+    fi
+
+    echo "Resizing volume..."
+    # Resize the EBS volume.
+    aws ec2 modify-volume --volume-id $VOLUMEID --size $SIZE
+
+    echo "Waiting for resize to complete..."
+    while true; do
+        STATE=$(aws ec2 describe-volumes-modifications \
+            --volume-id $VOLUMEID \
+            --filters Name=modification-state,Values="optimizing","completed" \
+            --query "length(VolumesModifications)" \
+            --output text)
+        
+        if [ "$STATE" = "1" ]; then
+            echo "Volume modification complete"
+            break
+        fi
+        echo "Still waiting..."
+        sleep 1
+    done
+
+    echo "Checking file system..."
+    #Check if we're on an NVMe filesystem
+    if [ "$(readlink -f /dev/xvda)" = "/dev/xvda" ]; then
+        echo "Standard EBS volume detected"
+        # Rewrite the partition table so that the partition takes up all the space that it can.
+        sudo growpart /dev/xvda 1
+        
+        # Expand the size of the file system.
+        # Check if we are on AL2
+        if grep -q "VERSION_ID=\"2\"" /etc/os-release; then
+            echo "Amazon Linux 2 detected, using xfs_growfs"
+            sudo xfs_growfs -d /
+        else
+            echo "Using resize2fs"
+            sudo resize2fs /dev/xvda1
+        fi
+    else
+        echo "NVMe volume detected"
+        # Rewrite the partition table so that the partition takes up all the space that it can.
+        sudo growpart /dev/nvme0n1 1
+        
+        # Expand the size of the file system.
+        # Check if we're on AL2
+        if grep -q "VERSION_ID=\"2\"" /etc/os-release; then
+            echo "Amazon Linux 2 detected, using xfs_growfs"
+            sudo xfs_growfs -d /
+        else
+            echo "Using resize2fs"
+            sudo resize2fs /dev/nvme0n1p1
+        fi
+    fi
+
+    echo "Volume resize completed successfully!"
+    df -h /
+}
+
 function install_packages()
 {
     local current_dir
@@ -111,7 +202,11 @@ function install_packages()
     
     sudo yum install -y jq  > "${TERM}" 2>&1
     print_line
-    source <(curl -s https://raw.githubusercontent.com/aws-samples/aws-swb-cloud9-init/mainline/cloud9-resize.sh)
+    
+    # Resize Cloud9 to 50GB
+    resize_cloud9 50
+    
+    print_line
     echo "Installing aws cli v2"
     print_line
     if aws --version | grep -q "aws-cli/2"; then
