@@ -2035,16 +2035,16 @@ Resources:
             Events: 
               - s3:ObjectCreated:*
             Filter:
-              S3Key:
-                Rules:
+              Key:
+                FilterRules:
                   - Name: prefix
                     Value: knowledgebase/
           - LambdaFunctionArn: !GetAtt KBAutoSyncLambda.Arn
             Events: 
               - s3:ObjectRemoved:*
             Filter:
-              S3Key:
-                Rules:
+              Key:
+                FilterRules:
                   - Name: prefix
                     Value: knowledgebase/
 
