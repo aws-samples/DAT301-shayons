@@ -366,7 +366,7 @@ function load_product_catalog() {
         boughtInLastMonth INT,
         category_name VARCHAR(255),
         quantity INT,
-        embedding vector(1536)
+        embedding vector(1024)
     );"
 
     if [ $? -ne 0 ]; then
