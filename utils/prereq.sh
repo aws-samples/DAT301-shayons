@@ -347,6 +347,75 @@ function configure_pg()
     fi
 }
 
+function load_product_catalog() {
+    print_line
+    echo "Creating and loading product catalog table"
+    print_line
+
+    # Create the table
+    psql -c "CREATE TABLE IF NOT EXISTS bedrock_integration.product_catalog (
+        \"productId\" VARCHAR(255),
+        product_description TEXT,
+        imgUrl TEXT,
+        productURL TEXT,
+        stars NUMERIC,
+        reviews INT,
+        price NUMERIC,
+        category_id INT,
+        isBestSeller BOOLEAN,
+        boughtInLastMonth INT,
+        category_name VARCHAR(255),
+        quantity INT,
+        embedding vector(1536)
+    );"
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to create product_catalog table"
+        return 1
+    fi
+
+    # Create the index
+    psql -c "CREATE INDEX IF NOT EXISTS product_catalog_embedding_idx ON bedrock_integration.product_catalog USING hnsw (embedding vector_cosine_ops);"
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to create index on product_catalog"
+        return 1
+
+    # Check if data already exists
+    local count=$(psql -t -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;")
+    if [ "$count" -gt 0 ]; then
+        echo "Product catalog already contains $count rows, skipping data load"
+        return 0
+    fi
+
+    # Download the CSV file from S3
+    echo "Downloading product catalog data from S3..."
+    aws s3 cp s3://dat301-product-catalog/product_catalog.csv /tmp/product_catalog.csv
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to download product catalog data from S3"
+        return 1
+    fi
+
+    # Load the data using COPY command
+    echo "Loading product catalog data..."
+    psql -c "\COPY bedrock_integration.product_catalog FROM '/tmp/product_catalog.csv' WITH (FORMAT csv, HEADER true);"
+
+    if [ $? -ne 0 ]; then
+        echo "Failed to load product catalog data"
+        return 1
+    fi
+
+    # Verify row count
+    count=$(psql -t -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;")
+    echo "Loaded $count rows into product catalog"
+
+    # Cleanup
+    rm -f /tmp/product_catalog.csv
+
+    return 0
+}
+
 function install_python3()
 {
     print_line
@@ -504,6 +573,8 @@ print_line
 install_python3
 print_line
 git_clone
+print_line
+load_product_catalog
 print_line
 check_installation
 cp_logfile
