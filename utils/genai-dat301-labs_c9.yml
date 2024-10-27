@@ -1711,7 +1711,7 @@ Resources:
               {
                 "openapi": "3.0.0",
                 "info": {
-                  "title": "Bellagio Bazaar",
+                  "title": "Blaize Bazaar",
                   "version": "1.0.0",
                   "description": "APIs for managing product inventory"
                 },
