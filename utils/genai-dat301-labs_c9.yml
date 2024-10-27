@@ -1959,12 +1959,12 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: 
-                  - !Sub ${BedrockKB.Arn}/*
-                  - !Sub ${BedrockKB.Arn}/knowledgebase/*
+                  - !Sub "arn:aws:s3:::${BedrockKB}/*" 
+                  - !Sub "arn:aws:s3:::${BedrockKB}/knowledgebase/*" 
               - Effect: Allow
                 Action:
                   - s3:ListBucket
-                Resource: !Ref BedrockKB
+                Resource: !Sub "arn:aws:s3:::${BedrockKB}"
 
   KBAutoSyncLambda:
     Type: AWS::Lambda::Function
