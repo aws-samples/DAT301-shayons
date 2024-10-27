@@ -1275,12 +1275,6 @@ Resources:
       Bucket: !Ref BedrockKB
       Key: knowledgebase/
 
-  ProductCatalogFolder:
-    Type: AWS::S3::Object
-    Properties:
-      Bucket: !Ref BedrockKB
-      Key: productcatalog/
-
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
     DependsOn: VPC
@@ -2043,7 +2037,6 @@ Resources:
       - KBAutoSyncLambda
       - KBAutoSyncLambdaPermission
       - KnowledgeBaseFolder
-      - ProductCatalogFolder
     Properties:
       ServiceToken: !GetAtt NotificationSetupFunction.Arn
       BucketName: !Ref BedrockKB
@@ -2189,7 +2182,3 @@ Outputs:
   KnowledgeBaseFolderPath:
     Description: "Path to Knowledge Base folder"
     Value: !Sub "s3://${BedrockKB}/knowledgebase/"
-
-  ProductCatalogFolderPath:
-    Description: "Path to Product Catalog folder"
-    Value: !Sub "s3://${BedrockKB}/productcatalog/"
