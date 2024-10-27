@@ -352,6 +352,12 @@ function load_product_catalog() {
     echo "Creating and loading product catalog table"
     print_line
 
+    # Create schema if it doesn't exist
+    psql -c "CREATE SCHEMA IF NOT EXISTS bedrock_integration;" || {
+        echo "Failed to create schema bedrock_integration"
+        return 1
+    }
+
     # Create the table
     psql -c "CREATE TABLE IF NOT EXISTS bedrock_integration.product_catalog (
         \"productId\" VARCHAR(255),
@@ -367,19 +373,16 @@ function load_product_catalog() {
         category_name VARCHAR(255),
         quantity INT,
         embedding vector(1024)
-    );"
-
-    if [ $? -ne 0 ]; then
+    );" || {
         echo "Failed to create product_catalog table"
         return 1
-    fi
+    }
 
     # Create the index
-    psql -c "CREATE INDEX IF NOT EXISTS product_catalog_embedding_idx ON bedrock_integration.product_catalog USING hnsw (embedding vector_cosine_ops);"
-
-    if [ $? -ne 0 ]; then
+    psql -c "CREATE INDEX IF NOT EXISTS product_catalog_embedding_idx ON bedrock_integration.product_catalog USING hnsw (embedding vector_cosine_ops);" || {
         echo "Failed to create index on product_catalog"
         return 1
+    }
 
     # Check if data already exists
     local count=$(psql -t -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;")
@@ -388,30 +391,40 @@ function load_product_catalog() {
         return 0
     fi
 
-    # Download the CSV file from S3
-    echo "Downloading product catalog data from S3..."
-    aws s3 cp s3://dat301-product-catalog/product_catalog.csv /tmp/product_catalog.csv
+    # Get the dataset from the cloned repository
+    local repo_dir="${HOME}/environment/${PROJ_NAME}"
+    local dataset_path="${repo_dir}/datasets/product_catalog.csv.gz"
 
-    if [ $? -ne 0 ]; then
-        echo "Failed to download product catalog data from S3"
+    if [ ! -f "$dataset_path" ]; then
+        echo "Product catalog data file not found at $dataset_path"
         return 1
     fi
+
+    echo "Loading product catalog data from $dataset_path"
+    # Create a temporary file for the decompressed data
+    local temp_file=$(mktemp)
+
+    # Decompress the gzip file
+    gunzip -c "$dataset_path" > "$temp_file" || {
+        echo "Failed to decompress product catalog data"
+        rm -f "$temp_file"
+        return 1
+    }
 
     # Load the data using COPY command
-    echo "Loading product catalog data..."
-    psql -c "\COPY bedrock_integration.product_catalog FROM '/tmp/product_catalog.csv' WITH (FORMAT csv, HEADER true);"
-
-    if [ $? -ne 0 ]; then
+    echo "Loading product catalog data into database..."
+    psql -c "\COPY bedrock_integration.product_catalog FROM '$temp_file' WITH (FORMAT csv, HEADER true);" || {
         echo "Failed to load product catalog data"
+        rm -f "$temp_file"
         return 1
-    fi
+    }
+
+    # Cleanup temporary file
+    rm -f "$temp_file"
 
     # Verify row count
     count=$(psql -t -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;")
-    echo "Loaded $count rows into product catalog"
-
-    # Cleanup
-    rm -f /tmp/product_catalog.csv
+    echo "Successfully loaded $count rows into product catalog"
 
     return 0
 }
