@@ -1264,7 +1264,25 @@ Resources:
   # Creating bucket for loading Knowledge Base for Bedrock
   BedrockKB:
     Type: AWS::S3::Bucket
+    DependsOn: KBAutoSyncLambdaPermission
     DeletionPolicy: Delete
+    Properties:
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: knowledgebase/
+            Function: !GetAtt KBAutoSyncLambda.Arn
+          - Event: s3:ObjectRemoved:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: knowledgebase/
+            Function: !GetAtt KBAutoSyncLambda.Arn
 
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
@@ -1689,7 +1707,7 @@ Resources:
           BucketArn: !GetAtt BedrockKB.Arn
           BucketOwnerAccountId: !Sub "${AWS::AccountId}"
           InclusionPrefixes:
-            - runbooks
+            - knowledgebase
       Description: "Datasource for Bedrock Agent"
       KnowledgeBaseId: !GetAtt AmazonBedrockAgentKnowledgebase.KnowledgeBaseId
       Name: !Sub "bedrock-ds-${AWS::StackName}"
@@ -1925,6 +1943,97 @@ Resources:
         - Description: "Knowledgebase for DAT301"
           KnowledgeBaseId: !GetAtt AmazonBedrockAgentKnowledgebase.KnowledgeBaseId
           KnowledgeBaseState: ENABLED
+
+# Auto-ingestion Lambda Function
+  KBAutoSyncLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: BedrockAgentAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:*
+                  - bedrock-agent:*
+                Resource: '*'
+        - PolicyName: S3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub ${BedrockKB.Arn}/*
+                  - !Sub ${BedrockKB.Arn}/knowledgebase/*
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !Ref BedrockKB
+
+  KBAutoSyncLambda:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - AmazonBedrockAgentDatasource
+      - AmazonBedrockAgentKnowledgebase
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt KBAutoSyncLambdaRole.Arn
+      Code:
+        ZipFile: |
+          import os
+          import json
+          import boto3
+
+          bedrockClient = boto3.client('bedrock-agent')
+
+          def lambda_handler(event, context):
+              print('Inside Lambda Handler')
+              print('event: ', event)
+              dataSourceId = os.environ['DATASOURCEID']
+              knowledgeBaseId = os.environ['KNOWLEDGEBASEID']
+              
+              print('knowledgeBaseId: ', knowledgeBaseId)
+              print('dataSourceId: ', dataSourceId)
+
+              response = bedrockClient.start_ingestion_job(
+                  knowledgeBaseId=knowledgeBaseId,
+                  dataSourceId=dataSourceId
+              )
+              
+              print('Ingestion Job Response: ', response)
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('response')
+              }
+      Runtime: python3.11
+      Timeout: 300
+      Environment:
+        Variables:
+          DATASOURCEID: !Ref AmazonBedrockAgentDatasource
+          KNOWLEDGEBASEID: !Ref AmazonBedrockAgentKnowledgebase
+
+  KBAutoSyncLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref KBAutoSyncLambda
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt BedrockKB.Arn
 
 Outputs:
   NotebookInstanceURL:
