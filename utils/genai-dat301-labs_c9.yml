@@ -2031,20 +2031,22 @@ Resources:
       BucketName: !Ref BedrockKB
       NotificationConfiguration:
         LambdaFunctionConfigurations:
-          - Event: s3:ObjectCreated:*
+          - LambdaFunctionArn: !GetAtt KBAutoSyncLambda.Arn
+            Events: 
+              - s3:ObjectCreated:*
             Filter:
               S3Key:
                 Rules:
                   - Name: prefix
                     Value: knowledgebase/
-            Function: !GetAtt KBAutoSyncLambda.Arn
-          - Event: s3:ObjectRemoved:*
+          - LambdaFunctionArn: !GetAtt KBAutoSyncLambda.Arn
+            Events: 
+              - s3:ObjectRemoved:*
             Filter:
               S3Key:
                 Rules:
                   - Name: prefix
                     Value: knowledgebase/
-            Function: !GetAtt KBAutoSyncLambda.Arn
 
   # Lambda function to set up bucket notifications
   NotificationSetupFunction:
