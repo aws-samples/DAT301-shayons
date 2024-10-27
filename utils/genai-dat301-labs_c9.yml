@@ -1264,25 +1264,7 @@ Resources:
   # Creating bucket for loading Knowledge Base for Bedrock
   BedrockKB:
     Type: AWS::S3::Bucket
-    DependsOn: KBAutoSyncLambdaPermission
     DeletionPolicy: Delete
-    Properties:
-      NotificationConfiguration:
-        LambdaConfigurations:
-          - Event: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: knowledgebase/
-            Function: !GetAtt KBAutoSyncLambda.Arn
-          - Event: s3:ObjectRemoved:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: knowledgebase/
-            Function: !GetAtt KBAutoSyncLambda.Arn
 
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
@@ -1976,7 +1958,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:DeleteObject
-                Resource:
+                Resource: 
                   - !Sub ${BedrockKB.Arn}/*
                   - !Sub ${BedrockKB.Arn}/knowledgebase/*
               - Effect: Allow
@@ -1987,6 +1969,7 @@ Resources:
   KBAutoSyncLambda:
     Type: AWS::Lambda::Function
     DependsOn:
+      - KBAutoSyncLambdaRole
       - AmazonBedrockAgentDatasource
       - AmazonBedrockAgentKnowledgebase
     Properties:
@@ -2029,11 +2012,94 @@ Resources:
 
   KBAutoSyncLambdaPermission:
     Type: AWS::Lambda::Permission
+    DependsOn: KBAutoSyncLambda
     Properties:
       FunctionName: !Ref KBAutoSyncLambda
       Action: lambda:InvokeFunction
       Principal: s3.amazonaws.com
       SourceArn: !GetAtt BedrockKB.Arn
+  
+  # Update bucket with notifications after Lambda and permissions are created
+  BucketNotificationsCustomResource:
+    Type: Custom::S3BucketNotifications
+    DependsOn: 
+      - BedrockKB
+      - KBAutoSyncLambda
+      - KBAutoSyncLambdaPermission
+    Properties:
+      ServiceToken: !GetAtt NotificationSetupFunction.Arn
+      BucketName: !Ref BedrockKB
+      NotificationConfiguration:
+        LambdaFunctionConfigurations:
+          - Event: s3:ObjectCreated:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: knowledgebase/
+            Function: !GetAtt KBAutoSyncLambda.Arn
+          - Event: s3:ObjectRemoved:*
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: prefix
+                    Value: knowledgebase/
+            Function: !GetAtt KBAutoSyncLambda.Arn
+
+  # Lambda function to set up bucket notifications
+  NotificationSetupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.lambda_handler
+      Role: !GetAtt NotificationSetupRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import cfnresponse
+          import json
+          
+          def lambda_handler(event, context):
+              try:
+                  print(event)
+                  if event['RequestType'] in ['Create', 'Update']:
+                      s3 = boto3.client('s3')
+                      bucket = event['ResourceProperties']['BucketName']
+                      configuration = event['ResourceProperties']['NotificationConfiguration']
+                      
+                      s3.put_bucket_notification_configuration(
+                          Bucket=bucket,
+                          NotificationConfiguration=configuration
+                      )
+                      
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+              except Exception as e:
+                  print(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {})
+      Runtime: python3.11
+      Timeout: 60
+
+  NotificationSetupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: S3NotificationAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutBucketNotification
+                  - s3:GetBucketNotification
+                Resource: !GetAtt BedrockKB.Arn
 
 Outputs:
   NotebookInstanceURL:
