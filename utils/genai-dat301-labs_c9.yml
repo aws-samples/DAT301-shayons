@@ -7,7 +7,7 @@ Description: >
 Parameters:
   TemplateName:
     Type: String
-    Default: genai-DAT301-labs
+    Default: genai-dat-301-labs
     Description: Name used for different elements created.
 
   VpcName:
@@ -1265,6 +1265,21 @@ Resources:
   BedrockKB:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
+    Properties:
+      BucketName: !Sub "dat-301-s3buckets-${AWS::AccountId}"
+  
+  # Create empty objects to represent folders
+  KnowledgeBaseFolder:
+    Type: AWS::S3::Object
+    Properties:
+      Bucket: !Ref BedrockKB
+      Key: knowledgebase/
+
+  ProductCatalogFolder:
+    Type: AWS::S3::Object
+    Properties:
+      Bucket: !Ref BedrockKB
+      Key: productcatalog/
 
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
@@ -1681,6 +1696,7 @@ Resources:
     Type: AWS::Bedrock::DataSource
     DependsOn:
       - AmazonBedrockAgentKnowledgebase
+      - KnowledgeBaseFolder
     Properties:
       DataDeletionPolicy: DELETE
       DataSourceConfiguration:
@@ -1689,7 +1705,7 @@ Resources:
           BucketArn: !GetAtt BedrockKB.Arn
           BucketOwnerAccountId: !Sub "${AWS::AccountId}"
           InclusionPrefixes:
-            - knowledgebase
+            - knowledgebase/
       Description: "Datasource for Bedrock Agent"
       KnowledgeBaseId: !GetAtt AmazonBedrockAgentKnowledgebase.KnowledgeBaseId
       Name: !Sub "bedrock-ds-${AWS::StackName}"
@@ -1700,10 +1716,10 @@ Resources:
       - AmazonBedrockAgentDatasource
       - BedrockAgentActionLambda
     Properties:
-      AgentName: !Sub "${AWS::StackName}-DAT301-agent"
+      AgentName: !Sub "${AWS::StackName}-dat-301-agent"
       ActionGroups:
-        - ActionGroupName: !Sub "${AWS::StackName}-DAT301-agent"
-          Description: "DAT301 Agent"
+        - ActionGroupName: !Sub "${AWS::StackName}-dat-301-agent"
+          Description: "DAT-301-Agent"
           ActionGroupExecutor:
             Lambda: !GetAtt BedrockAgentActionLambda.Arn
           ApiSchema:
@@ -2026,6 +2042,8 @@ Resources:
       - BedrockKB
       - KBAutoSyncLambda
       - KBAutoSyncLambdaPermission
+      - KnowledgeBaseFolder
+      - ProductCatalogFolder
     Properties:
       ServiceToken: !GetAtt NotificationSetupFunction.Arn
       BucketName: !Ref BedrockKB
@@ -2163,3 +2181,15 @@ Outputs:
   PrivateSubnets:
     Description: "Private Subnet IDs"
     Value: !Join [",", [!Ref Subnet3, !Ref Subnet4]]
+  
+  S3BucketName:
+    Description: "Name of the S3 bucket"
+    Value: !Ref BedrockKB
+
+  KnowledgeBaseFolderPath:
+    Description: "Path to Knowledge Base folder"
+    Value: !Sub "s3://${BedrockKB}/knowledgebase/"
+
+  ProductCatalogFolderPath:
+    Description: "Path to Product Catalog folder"
+    Value: !Sub "s3://${BedrockKB}/productcatalog/"
