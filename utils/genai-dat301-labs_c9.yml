@@ -1267,8 +1267,6 @@ Resources:
     DeletionPolicy: Delete
     Properties:
       BucketName: !Sub "dat-301-s3buckets-${AWS::AccountId}"
-      VersionConfiguration:
-        Status: Enabled
 
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
