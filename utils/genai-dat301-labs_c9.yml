@@ -466,6 +466,11 @@ Resources:
           ToPort: !Ref DBPort
           CidrIp: !Ref VpcCIDR
           Description: "Access to AppServer Host Security Group"
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          SourceSecurityGroupId: !Ref SecurityGroup
+          Description: "Allow all traffic from SageMaker notebook security group"
       VpcId: !Ref VPC
       Tags:
         - Key: Name
