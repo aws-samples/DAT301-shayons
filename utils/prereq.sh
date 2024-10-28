@@ -503,6 +503,9 @@ function activate_venv()
 
 function check_installation()
 {
+    overall="True"
+    
+    # Check AWS Region
     if [ -z "$AWS_REGION" ]; then
         echo "AWS Region not set : NOTOK"
         overall="False"
@@ -510,44 +513,101 @@ function check_installation()
         echo "AWS Region set to $AWS_REGION : OK"
     fi
     
-    overall="True"
-    #Checking postgresql 
-    if psql -c "select version()" | grep -q PostgreSQL; then
-        echo "PostgreSQL installation successful : OK"
+    # Check AWS CLI
+    if aws sts get-caller-identity &> /dev/null; then
+        echo "AWS CLI configuration : OK"
     else
-        echo "PostgreSQL installation FAILED : NOTOK"
+        echo "AWS CLI configuration : NOTOK"
+        overall="False"
+    fi
+    
+    # Check PostgreSQL
+    if psql -c "select version()" | grep -q PostgreSQL; then
+        echo "PostgreSQL installation : OK"
+    else
+        echo "PostgreSQL installation : NOTOK"
         echo "Error: $(psql -c "select version()" 2>&1)"
         overall="False"
     fi
     
-    # Checking clone
-    if [ -d "${HOME}/environment/${PROJ_NAME}/" ]; then 
-        echo "Git Clone successful : OK"
+    # Check PostgreSQL Configuration
+    if [ -n "$PGHOST" ] && [ -n "$PGUSER" ] && [ -n "$PGPASSWORD" ]; then
+        echo "PostgreSQL configuration : OK"
     else
-        echo "Git Clone FAILED : NOTOK"
+        echo "PostgreSQL configuration : NOTOK"
+        overall="False"
+    fi
+    
+    # Check Git Clone
+    if [ -d "${HOME}/environment/${PROJ_NAME}/" ]; then 
+        echo "Git Clone : OK"
+    else
+        echo "Git Clone : NOTOK"
         echo "Error: Directory ${HOME}/environment/${PROJ_NAME}/ does not exist"
         overall="False"
     fi
 
-    # Checking python
+    # Check Python Installation
     if command -v python${PYTHON_MAJOR_VERSION} &> /dev/null; then
-        echo "Python${PYTHON_MAJOR_VERSION} installation successful : OK"
+        echo "Python${PYTHON_MAJOR_VERSION} installation : OK"
         python${PYTHON_MAJOR_VERSION} --version
     else
-        echo "Python${PYTHON_MAJOR_VERSION} installation FAILED : NOTOK"
+        echo "Python${PYTHON_MAJOR_VERSION} installation : NOTOK"
         echo "Error: python${PYTHON_MAJOR_VERSION} command not found"
         overall="False"
     fi
 
-    # Checking python3
+    # Check Python3 Symlink
     if command -v python3 &> /dev/null; then
-        echo "Python3 symlink created successfully : OK"
+        echo "Python3 symlink : OK"
         python3 --version
     else
-        echo "Python3 symlink creation FAILED : NOTOK"
+        echo "Python3 symlink : NOTOK"
         echo "Error: python3 command not found"
         overall="False"
     fi
+
+    # Check Virtual Environment
+    if [ -f "${HOME}/environment/${PROJ_NAME}/venv-blaize-bazaar/bin/activate" ]; then
+        echo "Virtual environment setup : OK"
+    else
+        echo "Virtual environment setup : NOTOK"
+        overall="False"
+    fi
+
+    # Check Product Catalog Table
+    if psql -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;" &> /dev/null; then
+        local count=$(psql -t -c "SELECT COUNT(*) FROM bedrock_integration.product_catalog;")
+        echo "Product catalog table setup : OK (Contains $count rows)"
+    else
+        echo "Product catalog table setup : NOTOK"
+        overall="False"
+    fi
+
+    # Check Knowledge Base S3 Folder
+    local bucket_name="dat-301-s3buckets-${AWS_ACCOUNT_ID}"
+    if aws s3api head-object --bucket "$bucket_name" --key "knowledgebase/" &> /dev/null; then
+        echo "Knowledge base S3 folder setup : OK"
+    else
+        echo "Knowledge base S3 folder setup : NOTOK"
+        overall="False"
+    fi
+
+    # Check Required Python Packages
+    echo "Checking required Python packages..."
+    source "${HOME}/environment/${PROJ_NAME}/venv-blaize-bazaar/bin/activate" &> /dev/null
+    required_packages=("psycopg2-binary" "boto3" "pandas" "numpy")
+    packages_ok=true
+    for package in "${required_packages[@]}"; do
+        if ! pip show "$package" &> /dev/null; then
+            echo "Python package $package : NOTOK"
+            packages_ok=false
+            overall="False"
+        else
+            echo "Python package $package : OK"
+        fi
+    done
+    deactivate
 
     echo "=================================="
     if [ "${overall}" == "True" ]; then
