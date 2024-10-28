@@ -467,6 +467,24 @@ function install_python3()
     echo "Python ${PYTHON_VERSION} installation completed"
 }
 
+function setup_kb_folder() {
+    local bucket_name="dat-301-s3buckets-${AWS_ACCOUNT_ID}"
+
+    # Create knowledgebase folder in S3
+    aws s3api put-object \
+        --bucket "$bucket_name" \
+        --key "knowledgebase/" \
+        --content-length 0
+
+    if [ $? -eq 0 ]; then
+        echo "Successfully created knowledge base folder in S3"
+        return 0
+    else
+        echo "Failed to create knowledge base folder in S3"
+        return 1
+    fi
+}
+
 function activate_venv()
 {
     local clone_dir="${HOME}/environment"
@@ -584,6 +602,8 @@ install_postgresql
 configure_pg
 print_line
 install_python3
+print_line
+setup_kb_folder || { echo "Failed to setup KB folder"; exit 1; }
 print_line
 git_clone
 print_line
