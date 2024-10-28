@@ -1266,7 +1266,7 @@ Resources:
     Type: AWS::S3::Bucket
     DeletionPolicy: Delete
     Properties:
-      BucketName: !Sub "dat-301-s3buckets-${AWS::AccountId}"
+      BucketName: !Sub "knowledgebase-${AWS::AccountId}"
 
   S3VPCEndpoint:
     Type: "AWS::EC2::VPCEndpoint"
