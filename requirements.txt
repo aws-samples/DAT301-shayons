@@ -3,6 +3,7 @@ streamlit
 boto3
 streamlit_pdf_viewer
 psycopg[binary,pool]
+psycopg2-binary
 plotly
 numpy
 pandas
