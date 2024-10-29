@@ -8,6 +8,7 @@ import boto3
 import json
 import base64
 from botocore.exceptions import ClientError
+from datetime import datetime
 import time
 
 # Load environment variables and set up configurations
@@ -233,6 +234,15 @@ def main():
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("This page provides product recommendations using AI-powered similarity search and analysis, comparing traditional keyword-based search with semantic search.")
+    
+    st.write ("---")
+    
+    # Add version info
+    st.sidebar.divider()
+    st.sidebar.caption(f"""
+    Version: 1.0.0
+    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
+    """)
 
     show_product_recommendations()
 
