@@ -1606,8 +1606,6 @@ Resources:
         S3Configuration:
           BucketArn: !GetAtt BedrockKB.Arn
           BucketOwnerAccountId: !Sub "${AWS::AccountId}"
-          InclusionPrefixes:
-            - knowledgebase/
       Description: "Datasource for Bedrock Agent"
       KnowledgeBaseId: !GetAtt AmazonBedrockAgentKnowledgebase.KnowledgeBaseId
       Name: !Sub "bedrock-ds-${AWS::StackName}"
@@ -1877,8 +1875,7 @@ Resources:
                   - s3:PutObject
                   - s3:DeleteObject
                 Resource: 
-                  - !Sub "arn:aws:s3:::${BedrockKB}/*" 
-                  - !Sub "arn:aws:s3:::${BedrockKB}/knowledgebase/*" 
+                  - !Sub "arn:aws:s3:::${BedrockKB}/*"
               - Effect: Allow
                 Action:
                   - s3:ListBucket
@@ -1952,19 +1949,9 @@ Resources:
           - LambdaFunctionArn: !GetAtt KBAutoSyncLambda.Arn
             Events: 
               - s3:ObjectCreated:*
-            Filter:
-              Key:
-                FilterRules:
-                  - Name: prefix
-                    Value: knowledgebase/
           - LambdaFunctionArn: !GetAtt KBAutoSyncLambda.Arn
             Events: 
               - s3:ObjectRemoved:*
-            Filter:
-              Key:
-                FilterRules:
-                  - Name: prefix
-                    Value: knowledgebase/
 
   # Lambda function to set up bucket notifications
   NotificationSetupFunction:
