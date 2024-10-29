@@ -421,21 +421,6 @@ Resources:
         GenerateStringKey: "password"
         PasswordLength: 16
         ExcludePunctuation: true
-
-  SecretsManagerVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
-    DependsOn: VPC
-    Properties:
-      VpcEndpointType: "Interface"
-      PrivateDnsEnabled: true
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref Subnet3
-        - !Ref Subnet4
-      SecurityGroupIds:
-        - !GetAtt VPCSecurityGroup.GroupId
-        - !Ref LambdaSecurityGroup
-      ServiceName: !Sub "com.amazonaws.${AWS::Region}.secretsmanager"
     
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -792,7 +777,6 @@ Resources:
     DependsOn:
       - LambdaBootstrapFunction
       - DBNodeWriter
-      - SecretsManagerVPCEndpoint
     Properties:
       Handler: index.lambda_handler
       Role: !GetAtt LambdaBootstrapRole.Arn
@@ -905,7 +889,6 @@ Resources:
       - DBNodeWriter
       - DBNodeReader
       - DBInitializationCheckFunction
-      - SecretsManagerVPCEndpoint
     Properties:
       ServiceToken: !GetAtt DBInitializationCheckFunction.Arn
       DBSecret: !Ref RDSSecrets
@@ -1294,78 +1277,6 @@ Resources:
       VpcId: !Ref VPC
 
   # end of S3 Bucket
-
-  BedrockVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
-    DependsOn: VPC
-    Properties:
-      VpcEndpointType: "Interface"
-      PrivateDnsEnabled: true
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref Subnet3
-        - !Ref Subnet4
-      SecurityGroupIds:
-        - !GetAtt VPCSecurityGroup.GroupId
-      ServiceName: !Join
-        - ""
-        - - com.amazonaws.
-          - !Ref "AWS::Region"
-          - .bedrock
-
-  BedrockRuntimeVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
-    DependsOn: VPC
-    Properties:
-      VpcEndpointType: "Interface"
-      PrivateDnsEnabled: true
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref Subnet3
-        - !Ref Subnet4
-      SecurityGroupIds:
-        - !GetAtt VPCSecurityGroup.GroupId
-      ServiceName: !Join
-        - ""
-        - - com.amazonaws.
-          - !Ref "AWS::Region"
-          - .bedrock-runtime
-
-  BedrockAgentVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
-    DependsOn: VPC
-    Properties:
-      VpcEndpointType: "Interface"
-      PrivateDnsEnabled: true
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref Subnet3
-        - !Ref Subnet4
-      SecurityGroupIds:
-        - !GetAtt VPCSecurityGroup.GroupId
-      ServiceName: !Join
-        - ""
-        - - com.amazonaws.
-          - !Ref "AWS::Region"
-          - .bedrock-agent
-
-  BedrockAgentRuntimeVPCEndpoint:
-    Type: "AWS::EC2::VPCEndpoint"
-    DependsOn: VPC
-    Properties:
-      VpcEndpointType: "Interface"
-      PrivateDnsEnabled: true
-      VpcId: !Ref VPC
-      SubnetIds:
-        - !Ref Subnet3
-        - !Ref Subnet4
-      SecurityGroupIds:
-        - !GetAtt VPCSecurityGroup.GroupId
-      ServiceName: !Join
-        - ""
-        - - com.amazonaws.
-          - !Ref "AWS::Region"
-          - .bedrock-agent-runtime
 
   # Bedrock Agent
 
