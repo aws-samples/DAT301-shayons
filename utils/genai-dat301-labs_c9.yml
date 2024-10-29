@@ -1922,8 +1922,8 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          DATASOURCEID: !Ref AmazonBedrockAgentDatasource
-          KNOWLEDGEBASEID: !Ref AmazonBedrockAgentKnowledgebase
+          DATASOURCEID: !GetAtt AmazonBedrockAgentDatasource.DataSourceId
+          KNOWLEDGEBASEID: !GetAtt AmazonBedrockAgentKnowledgebase.KnowledgeBaseId
 
   KBAutoSyncLambdaPermission:
     Type: AWS::Lambda::Permission
