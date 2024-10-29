@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 import psycopg
 import pandas as pd
 import plotly.express as px
@@ -9,7 +10,14 @@ import boto3
 import json
 import base64
 import warnings
+import logging
+import time
+from botocore.config import Config
 from botocore.exceptions import ClientError
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Suppress the specific SQLAlchemy warning
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable.*")
@@ -18,9 +26,41 @@ warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy conne
 load_dotenv()
 
 # Initialize Bedrock client
-bedrock = boto3.client(
-    service_name='bedrock-runtime', region_name=os.environ.get('AWS_REGION')
+config = Config(
+    region_name='us-west-2',
+    retries={
+        'max_attempts': 3,
+        'mode': 'standard'
+    }
 )
+   
+bedrock = boto3.client(
+    service_name='bedrock-runtime',
+    region_name='us-west-2',
+    config=config
+)
+
+# Add this test function
+def test_bedrock_connection():
+    try:
+        response = bedrock.invoke_model(
+            modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+            contentType="application/json",
+            accept="application/json",
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 100,
+                "messages": [
+                    {"role": "user", "content": "Say hello"}
+                ]
+            })
+        )
+        response_body = json.loads(response.get('body').read())
+        return response_body['content'][0]['text']
+    except Exception as e:
+        print(f"Error type: {type(e)}")
+        print(f"Error message: {str(e)}")
+        raise e
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
@@ -35,22 +75,36 @@ def get_base64_of_bin_file(bin_file):
 
 # Database functions
 def get_db_connection():
-    return psycopg.connect(
-        host=os.getenv("DB_HOST"),
-        dbname=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        port=os.getenv("DB_PORT", "5432")
-    )
+    try:
+        return psycopg.connect(
+            host=os.getenv("DB_HOST"),
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            port=os.getenv("DB_PORT", "5432")
+        )
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        st.error("Failed to connect to database. Please check your configuration.")
+        return None
+
+# Database query function with proper error handling
+def execute_db_query(query, params=None):
+    try:
+        with get_db_connection() as conn:
+            return pd.read_sql(query, conn, params=params)
+    except Exception as e:
+        logger.error(f"Database query error: {e}")
+        st.error("Failed to execute database query.")
+        return pd.DataFrame()
 
 # Functions for graphs
 def get_product_data():
-    """
+    query = """
     SELECT "productId", product_description, category_name, stars, price, boughtinlastmonth, embedding
     FROM bedrock_integration.product_catalog
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_product_data.__doc__, conn)
+    return execute_db_query(query)
 
 def similarity_search(query_embedding, top_k=5):
     """
@@ -58,21 +112,32 @@ def similarity_search(query_embedding, top_k=5):
            imgURL, producturl,
            1 - (embedding <=> %s::vector) AS similarity
     FROM bedrock_integration.product_catalog
+    WHERE embedding IS NOT NULL
     ORDER BY embedding <=> %s::vector
     LIMIT %s
     """
-    query_embedding_list = query_embedding.tolist()
+    query_embedding_list = query_embedding.tolist() if isinstance(query_embedding, np.ndarray) else query_embedding
+    start_time = time.time()
 
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            try:
-                cur.execute(similarity_search.__doc__, (query_embedding_list, query_embedding_list, top_k))
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(similarity_search.__doc__, 
+                          (query_embedding_list, query_embedding_list, min(int(top_k), 100)))
                 results = cur.fetchall()
-            except psycopg.errors.InvalidTextRepresentation as e:
-                st.error(f"Error: {e}. The embedding data type might not match. Please check your database schema.")
-                st.stop()
-
-    return pd.DataFrame(results, columns=['productId', 'product_description', 'category_name', 'stars', 'price', 'boughtinlastmonth', 'imgURL', 'producturl', 'similarity'])
+                
+                df = pd.DataFrame(results, columns=[
+                    'productId', 'product_description', 'category_name', 
+                    'stars', 'price', 'boughtinlastmonth', 
+                    'imgURL', 'producturl', 'similarity'
+                ])
+                
+                query_time = (time.time() - start_time) * 1000  # Convert to milliseconds
+                return df, query_time
+                
+    except Exception as e:
+        st.error(f"Error in similarity search: {str(e)}")
+        return pd.DataFrame(), 0
 
 def get_top_trending_categories(top_n=10):
     """
@@ -82,8 +147,8 @@ def get_top_trending_categories(top_n=10):
     ORDER BY total_bought DESC
     LIMIT %s
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_top_trending_categories.__doc__, conn, params=(top_n,))
+    query = get_top_trending_categories.__doc__
+    return execute_db_query(query, (top_n,))
         
 def get_top_grossing_products(top_n=10):
     """
@@ -93,8 +158,8 @@ def get_top_grossing_products(top_n=10):
     ORDER BY total_revenue DESC
     LIMIT %s
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_top_grossing_products.__doc__, conn, params=(top_n,))
+    query = get_top_grossing_products.__doc__
+    return execute_db_query(query, (top_n,))
         
 def get_top_selling_products(top_n=10):
     """
@@ -103,8 +168,8 @@ def get_top_selling_products(top_n=10):
     ORDER BY boughtinlastmonth DESC
     LIMIT %s
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_top_selling_products.__doc__, conn, params=(top_n,))
+    query = get_top_selling_products.__doc__
+    return execute_db_query(query, (top_n,))
 
 def get_top_rated_categories(top_n=10):
     """
@@ -114,8 +179,8 @@ def get_top_rated_categories(top_n=10):
     ORDER BY avg_rating DESC
     LIMIT %s
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_top_rated_categories.__doc__, conn, params=(top_n,))
+    query = get_top_rated_categories.__doc__
+    return execute_db_query(query, (top_n,))
 
 def get_best_selling_by_category(top_n=10):
     """
@@ -125,8 +190,8 @@ def get_best_selling_by_category(top_n=10):
     ORDER BY category_name, boughtinlastmonth DESC
     LIMIT %s
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_best_selling_by_category.__doc__, conn, params=(top_n,))
+    query = get_best_selling_by_category.__doc__
+    return execute_db_query(query, (top_n,))
 
 def get_spending_habits():
     """
@@ -157,8 +222,8 @@ def get_spending_habits():
             ELSE 5
         END
     """
-    with get_db_connection() as conn:
-        return pd.read_sql(get_spending_habits.__doc__, conn)
+    query = get_spending_habits.__doc__
+    return execute_db_query(query)
 
 # Bedrock functions
 def generate_embedding(text):
@@ -172,6 +237,7 @@ def generate_embedding(text):
     embedding = response_body.get('embedding')
     return np.array(embedding, dtype=np.float32)
 
+# Get Claude response
 def get_claude_response(prompt, max_tokens=4096):
     try:
         body = json.dumps({
@@ -191,105 +257,124 @@ def get_claude_response(prompt, max_tokens=4096):
         
         response_body = json.loads(response.get('body').read())
         return response_body['content'][0]['text']
-    except ClientError as e:
-        st.error(f"An error occurred: {e}")
+    except Exception as e:
+        print(f"Claude error: {str(e)}")  # For debugging
         return None
 
 # UI functions
 def show_product_insights():
     st.subheader("Product Insights Dashboard")
 
-    # Create three columns for the first row of charts
-    col1, col2, col3 = st.columns(3)
+    with st.spinner("Loading product insights..."):
+        # Create three columns for the first row of charts
+        col1, col2, col3 = st.columns(3)
 
-    with col1:
-        # Top 10 Trending Categories
-        trending_categories = get_top_trending_categories(10)
-        fig_trending = px.bar(trending_categories.sort_values('total_bought', ascending=True), 
-                              x='total_bought', y='category_name',
-                              labels={'total_bought': 'Units Sold Last Month', 'category_name': 'Category'},
-                              title="Top 10 Trending Categories",
-                              orientation='h',
-                              color='total_bought',
-                              color_continuous_scale=px.colors.sequential.Viridis)
-        fig_trending.update_layout(showlegend=True, height=400, yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_trending, use_container_width=True)
-
-    with col2:
-        # Top 10 Highest Grossing Products
-        top_grossing = get_top_grossing_products(10)
-        # Create a shortened product name
-        top_grossing['short_name'] = top_grossing['product_description'].str[:20] + '...'
-        fig_grossing = px.bar(top_grossing, x='total_revenue', y='short_name',
-                          color='category_name', 
-                          hover_data=['product_description', 'boughtinlastmonth', 'price'],
-                          labels={'total_revenue': 'Total Revenue', 
-                                  'short_name': 'Product',
-                                  'product_description': 'Full Product Name'},
-                          title="Top 10 Highest Grossing Products",
-                          color_discrete_sequence=px.colors.qualitative.Vivid)
-        fig_grossing.update_layout(showlegend=True, height=400, legend_title_text='Category', yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_grossing, use_container_width=True)
-
-    with col3:
-        # Top 10 Best Selling Products
-        top_selling = get_top_selling_products(10)
-        top_selling['short_name'] = top_selling['product_description'].str[:20] + '...'
-    
-        fig_top_selling = px.bar(top_selling, x='boughtinlastmonth', y='short_name',
-                             color='category_name', 
-                             hover_data=['product_description', 'stars', 'price'],
-                             labels={'boughtinlastmonth': 'Units Sold Last Month', 
-                                     'short_name': 'Product',
-                                     'product_description': 'Full Product Name'},
-                             title="Top 10 Best Selling Products",
-                             orientation='h',
-                             height=500,
-                             color_discrete_sequence=px.colors.qualitative.Bold)
-        fig_top_selling.update_layout(showlegend=True, legend_title_text='Category', yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_top_selling, use_container_width=True)
-
-    # Create three columns for the second row of charts
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        # Top 10 Categories
-        top_categories = get_top_rated_categories(10)
-        fig_categories = px.bar(top_categories.sort_values('avg_rating', ascending=True), 
-                                x='avg_rating', y='category_name',
-                                labels={'avg_rating': 'Average Rating', 'category_name': 'Category'},
-                                title="Top 10 Categories by Average Rating",
-                                orientation='h',
-                                color='avg_rating',
-                                color_continuous_scale=px.colors.sequential.Magma)
-        fig_categories.update_layout(height=400, yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_categories, use_container_width=True)
-
-    with col5:
-        # Best Selling Products in each category
-        best_selling_by_category = get_best_selling_by_category()
-        fig_best_selling = px.bar(best_selling_by_category.sort_values('boughtinlastmonth', ascending=True), 
-                                  x='boughtinlastmonth', y='category_name',
-                                  labels={'boughtinlastmonth': 'Units Sold Last Month', 'category_name': 'Category'},
-                                  title="Best Selling Product in Each Category",
+        with col1:
+            # Top 10 Trending Categories
+            trending_categories = get_top_trending_categories(10)
+            if not trending_categories.empty:
+                fig_trending = px.bar(trending_categories.sort_values('total_bought', ascending=True), 
+                                  x='total_bought', y='category_name',
+                                  labels={'total_bought': 'Units Sold Last Month', 'category_name': 'Category'},
+                                  title="Top 10 Trending Categories",
                                   orientation='h',
-                                  color='product_description',
-                                  hover_data=['product_description'],
-                                  color_continuous_scale=px.colors.sequential.Inferno)
-        fig_best_selling.update_layout(showlegend=False, height=400, yaxis={'categoryorder':'total ascending'})
-        st.plotly_chart(fig_best_selling, use_container_width=True)
+                                  color='total_bought',
+                                  color_continuous_scale=px.colors.sequential.Viridis)
+                fig_trending.update_layout(showlegend=True, height=400, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_trending, use_container_width=True)
+            else:
+                st.warning("No trending categories data available")
 
-    with col6:
-        # General Spending Habits of Online Shoppers
-        spending_habits = get_spending_habits()
-        fig_spending = px.pie(spending_habits.sort_values('total_sold', ascending=False), 
-                              values='total_sold', names='price_range',
-                              title="General Spending Habits of Online Shoppers",
-                              hover_data=['product_count'],
-                              color_discrete_sequence=px.colors.qualitative.G10)
-        fig_spending.update_traces(textposition='inside', textinfo='percent+label')
-        fig_spending.update_layout(showlegend=True, legend_title_text='Price Range', height=400)
-        st.plotly_chart(fig_spending, use_container_width=True)
-    
+        with col2:
+            # Top 10 Highest Grossing Products
+            top_grossing = get_top_grossing_products(10)
+            if not top_grossing.empty:
+                # Create a shortened product name
+                top_grossing['short_name'] = top_grossing['product_description'].str[:20] + '...'
+                fig_grossing = px.bar(top_grossing, x='total_revenue', y='short_name',
+                                  color='category_name', 
+                                  hover_data=['product_description', 'boughtinlastmonth', 'price'],
+                                  labels={'total_revenue': 'Total Revenue', 
+                                          'short_name': 'Product',
+                                          'product_description': 'Full Product Name'},
+                                  title="Top 10 Highest Grossing Products",
+                                  color_discrete_sequence=px.colors.qualitative.Vivid)
+                fig_grossing.update_layout(showlegend=True, height=400, legend_title_text='Category', yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_grossing, use_container_width=True)
+            else:
+                st.warning("No revenue data available")
+
+        with col3:
+            # Top 10 Best Selling Products
+            top_selling = get_top_selling_products(10)
+            if not top_selling.empty:
+                top_selling['short_name'] = top_selling['product_description'].str[:20] + '...'
+                fig_top_selling = px.bar(top_selling, x='boughtinlastmonth', y='short_name',
+                                     color='category_name', 
+                                     hover_data=['product_description', 'stars', 'price'],
+                                     labels={'boughtinlastmonth': 'Units Sold Last Month', 
+                                             'short_name': 'Product',
+                                             'product_description': 'Full Product Name'},
+                                     title="Top 10 Best Selling Products",
+                                     orientation='h',
+                                     height=500,
+                                     color_discrete_sequence=px.colors.qualitative.Bold)
+                fig_top_selling.update_layout(showlegend=True, legend_title_text='Category', yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_top_selling, use_container_width=True)
+            else:
+                st.warning("No sales data available")
+
+        # Create three columns for the second row of charts
+        col4, col5, col6 = st.columns(3)
+
+        with col4:
+            # Top 10 Categories by Rating
+            top_categories = get_top_rated_categories(10)
+            if not top_categories.empty:
+                fig_categories = px.bar(top_categories.sort_values('avg_rating', ascending=True), 
+                                    x='avg_rating', y='category_name',
+                                    labels={'avg_rating': 'Average Rating', 'category_name': 'Category'},
+                                    title="Top 10 Categories by Average Rating",
+                                    orientation='h',
+                                    color='avg_rating',
+                                    color_continuous_scale=px.colors.sequential.Magma)
+                fig_categories.update_layout(height=400, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_categories, use_container_width=True)
+            else:
+                st.warning("No rating data available")
+
+        with col5:
+            # Best Selling Products in each category
+            best_selling_by_category = get_best_selling_by_category()
+            if not best_selling_by_category.empty:
+                fig_best_selling = px.bar(best_selling_by_category.sort_values('boughtinlastmonth', ascending=True), 
+                                      x='boughtinlastmonth', y='category_name',
+                                      labels={'boughtinlastmonth': 'Units Sold Last Month', 'category_name': 'Category'},
+                                      title="Best Selling Product in Each Category",
+                                      orientation='h',
+                                      color='product_description',
+                                      hover_data=['product_description'],
+                                      color_continuous_scale=px.colors.sequential.Inferno)
+                fig_best_selling.update_layout(showlegend=False, height=400, yaxis={'categoryorder':'total ascending'})
+                st.plotly_chart(fig_best_selling, use_container_width=True)
+            else:
+                st.warning("No category sales data available")
+
+        with col6:
+            # General Spending Habits
+            spending_habits = get_spending_habits()
+            if not spending_habits.empty:
+                fig_spending = px.pie(spending_habits.sort_values('total_sold', ascending=False), 
+                                  values='total_sold', names='price_range',
+                                  title="General Spending Habits of Online Shoppers",
+                                  hover_data=['product_count'],
+                                  color_discrete_sequence=px.colors.qualitative.G10)
+                fig_spending.update_traces(textposition='inside', textinfo='percent+label')
+                fig_spending.update_layout(showlegend=True, legend_title_text='Price Range', height=400)
+                st.plotly_chart(fig_spending, use_container_width=True)
+            else:
+                st.warning("No spending habits data available")
+
     # Show SQL queries in expanders
     with st.expander("View SQL Queries"):
         st.caption("These are the SQL Queries used to generate the Product Insights Dashboard.")
@@ -303,39 +388,113 @@ def show_product_insights():
     # AI-Powered Market Insights
     st.subheader("AI-Powered Market Insights")
     
-    # Prepare and show the AI prompt
-    insights_prompt = f"""
-    Based on the following product data:
-    Top Trending Categories: {trending_categories.to_dict()}
-    Top Grossing Products: {top_grossing.to_dict()}
-    Top Selling Products: {top_selling.to_dict()}
-    Top Rated Categories: {top_categories.to_dict()}
-    Best Selling by Category: {best_selling_by_category.to_dict()}
-    Spending Habits: {spending_habits.to_dict()}
+    # Add button for generating insights
+    if st.button("📊 Generate AI Insights", type="primary"):
+        with st.spinner("Generating AI insights..."):
+            # Prepare simplified data for the prompt
+            insights_data = {
+                "trending_categories": trending_categories[['category_name', 'total_bought']].head().to_dict('records'),
+                "top_grossing": top_grossing[['product_description', 'total_revenue', 'price']].head().to_dict('records'),
+                "top_selling": top_selling[['product_description', 'boughtinlastmonth', 'price']].head().to_dict('records'),
+                "category_ratings": top_categories[['category_name', 'avg_rating']].head().to_dict('records'),
+                "spending_habits": spending_habits[['price_range', 'total_sold']].to_dict('records')
+            }
+            
+            insights_prompt = f"""
+            Based on this e-commerce data:
+            Trending Categories: {insights_data['trending_categories']}
+            Top Grossing Products: {insights_data['top_grossing']}
+            Best Selling Products: {insights_data['top_selling']}
+            Category Ratings: {insights_data['category_ratings']}
+            Customer Spending: {insights_data['spending_habits']}
 
-    First, provide a summary of the market trends, customer preferences and potential areas for improvement or expansion. 
-    Second , provide a detailed analysis of the market trends, customer preferences, and potential areas for improvement or expansion.
-    Focus on actionable insights that could help drive business decisions. Format your response in markdown for easy reading.
-    """
-    
-    with st.expander("View AI Prompt"):
-        st.code(insights_prompt, language="markdown")
-    
-    with st.spinner("Generating AI insights..."):
-        claude_insights = get_claude_response(insights_prompt)
-    if claude_insights:
-        st.write(claude_insights)
+            Provide a brief analysis of:
+            1. Key market trends and patterns
+            2. Top performing products and categories
+            3. Customer spending patterns
+            4. Actionable recommendations for inventory and pricing
+
+            Format the response in markdown with clear sections and bullet points.
+            """
+            
+            try:
+                claude_insights = get_claude_response(insights_prompt)
+                if claude_insights:
+                    st.markdown(claude_insights)
+                    
+                    # Add a download button for the insights
+                    st.download_button(
+                        label="📥 Download Insights",
+                        data=claude_insights,
+                        file_name="market_insights.md",
+                        mime="text/markdown"
+                    )
+                else:
+                    st.error("Unable to generate AI insights. Please try again.")
+            except Exception as e:
+                st.error(f"Error generating insights: {str(e)}")
     else:
-        st.error("Failed to generate AI insights. Please try again later.")
+        st.info("Click the button above to generate AI-powered insights from your product data.")
+                
+        # Add feedback section
+        st.divider()
+        feedback = st.radio(
+            "Was this AI analysis helpful?",
+            ("Very Helpful", "Somewhat Helpful", "Not Helpful"),
+            index=None,
+            horizontal=True
+            )
+        if feedback:
+            st.toast(f"Thank you for your feedback: {feedback}")
 
 def main():
-    st.set_page_config(page_title="Product Insights", page_icon="📊", layout="wide")
+    st.set_page_config(
+        page_title="Product Insights - Blaize Bazaar",
+        page_icon="📊",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+
+    # Page Header
     st.subheader('Product Insights - Blaize Bazaar', divider='orange')
+    
+    # Sidebar
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
-    st.sidebar.info("This page provides comprehensive product insights using AI-powered analysis.")
-
-    show_product_insights()
+    st.sidebar.info("""
+    This dashboard provides comprehensive product insights using AI-powered analysis.
+    
+    Features:
+    - Real-time sales analytics
+    - Category performance metrics
+    - Revenue analysis
+    - AI-powered market insights
+    - Customer behavior analysis
+    """)
+    
+    # Add refresh button in sidebar
+    if st.sidebar.button("🔄 Refresh Data"):
+        st.cache_data.clear()
+        st.rerun()
+    
+    # Add version info
+    st.sidebar.divider()
+    st.sidebar.caption(f"""
+    Version: 1.0.0
+    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
+    """)
+    
+    try:
+        show_product_insights()
+    except Exception as e:
+        logger.error(f"Error in main application: {e}")
+        st.error("An unexpected error occurred. Please try again later or contact support.")
+        if st.button("Show Error Details"):
+            st.code(str(e))
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.error(f"Application startup error: {e}")
+        st.error("Failed to start the application. Please check the logs and try again.")

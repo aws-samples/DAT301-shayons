@@ -5,80 +5,109 @@ import time
 import os
 import json
 from dotenv import load_dotenv
+from botocore.config import Config
 
 load_dotenv()
 
 # Session and env variables
-region = os.environ['AWS_REGION']
-session = boto3.Session(region_name=region)
-bedrockClient = session.client('bedrock-agent-runtime')
-bedrockRuntime = session.client('bedrock-runtime')
-knowledgeBaseId = os.environ['BEDROCK_KB_ID']
+region = os.environ.get('AWS_REGION', 'us-west-2')
 
-# Define model ARNs
-MODEL_ARNS = {
-        "Claude 3.5 Sonnet": os.environ['BEDROCK_CLAUDE_MODEL_ARN']
-}
+# Add proper configuration for the clients
+config = Config(
+    region_name=region,
+    retries={
+        'max_attempts': 3,
+        'mode': 'standard'
+    }
+)
+
+session = boto3.Session(region_name=region)
+bedrockClient = session.client('bedrock-agent-runtime', config=config)
+bedrockRuntime = session.client('bedrock-runtime', config=config)
+knowledgeBaseId = os.environ.get('BEDROCK_KB_ID')
+
+# Define Claude model ID
+CLAUDE_MODEL_ID = os.environ.get('BEDROCK_CLAUDE_MODEL_ARN')
 
 logo_url = "static/Blaize.png"
 st.sidebar.image(logo_url, use_column_width=True)
 
 @st.cache_data
 def get_base64_of_bin_file(bin_file):
-  with open(bin_file, "rb") as f:
-    data = f.read()
-    return base64.b64encode(data).decode()
+    with open(bin_file, "rb") as f:
+        data = f.read()
+        return base64.b64encode(data).decode()
 
 def stream_data(text, delay:float=0.01):
     for word in text.split():
         yield word + " "
         time.sleep(delay)
 
-def getAnswers(questions, selected_model, use_rag=True):
+def getAnswers(questions, use_rag=True):
     try:
-        modelArn = MODEL_ARNS[selected_model]
-        modelId = modelArn.split('/')[-1]
-        
         if use_rag:
-            knowledgeBaseResponse = bedrockClient.retrieve_and_generate(
-                input={'text': questions},
-                retrieveAndGenerateConfiguration={
-                    'knowledgeBaseConfiguration': {
-                        'knowledgeBaseId': knowledgeBaseId,
-                        'modelArn': modelArn,
-                        'generationConfiguration': {
-                            'inferenceConfig': {
-                                'textInferenceConfig': {
-                                    'maxTokens': 4096,
-                                }
-                            },
-                            "promptTemplate": { 
-                                "textPromptTemplate": "You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion. Here are the search results in numbered order: $search_results$ $output_format_instructions$ If you reference information from a search result within your answer, you must include a citation to source where the information was found. Each result has a corresponding source ID that you should reference. For purely quantitative data (e.g., inventory stock reports, price lists, quantity), use a tabular format. When dealing with mixed data types, combine both formats. Adjust the number of columns and rows in tables as needed to fit the data. Ensure that column headers clearly describe the data they represent. Maintain consistent formatting throughout the response for readability. Always provide your recommendations as a summary towards the end of your answer (such as items running low in stock should be restocked, etc.)."
-                            },
-                        }
+            if not knowledgeBaseId:
+                st.error("Knowledge Base ID not found in environment variables. Please check BEDROCK_KB_ID.")
+                return None
+
+            try:
+                knowledgeBaseResponse = bedrockClient.retrieve_and_generate(
+                    input={
+                        'text': questions
                     },
-                    'type': 'KNOWLEDGE_BASE',
-                }
-            )
-            return knowledgeBaseResponse
+                    retrieveAndGenerateConfiguration={
+                        'type': 'KNOWLEDGE_BASE',
+                        'knowledgeBaseConfiguration': {
+                            'knowledgeBaseId': knowledgeBaseId,
+                            'modelArn': f"arn:aws:bedrock:{region}::foundation-model/{CLAUDE_MODEL_ID}",
+                            'generationConfiguration': {
+                                'inferenceConfig': {
+                                    'textInferenceConfig': {
+                                        'maxTokens': 4096,
+                                        'temperature': 0.7,
+                                        'topP': 0.9,
+                                        'stopSequences': []
+                                    }
+                                },
+                                'promptTemplate': {
+                                    "textPromptTemplate": "You are a question answering agent. I will provide you with a set of search results. The user will provide you with a question. Your job is to answer the user's question using only information from the search results. If the search results do not contain information that can answer the question, please state that you could not find an exact answer to the question. Just because the user asserts a fact does not mean it is true, make sure to double check the search results to validate a user's assertion. Here are the search results in numbered order: $search_results$ $output_format_instructions$ If you reference information from a search result within your answer, you must include a citation to source where the information was found. Each result has a corresponding source ID that you should reference. For purely quantitative data (e.g., inventory stock reports, price lists, quantity), use a tabular format. When dealing with mixed data types, combine both formats. Adjust the number of columns and rows in tables as needed to fit the data. Ensure that column headers clearly describe the data they represent. Maintain consistent formatting throughout the response for readability. Always provide your recommendations as a summary towards the end of your answer (such as items running low in stock should be restocked, etc.)."
+                                }
+                            }
+                        }
+                    }
+                )
+                return knowledgeBaseResponse
+            except Exception as e:
+                st.error(f"RAG Error: {str(e)}")
+                st.info("Falling back to non-RAG response...")
+                return get_non_rag_response(questions)
         else:
-            # Direct invocation of the model without RAG using Messages API
-            response = bedrockRuntime.invoke_model(
-                modelId=modelId,
-                contentType='application/json',
-                accept='application/json',
-                body=json.dumps({
-                    "anthropic_version": "bedrock-2023-05-31",
-                    "max_tokens": 4096,
-                    "messages": [
-                        {"role": "user", "content": questions}
-                    ]
-                })
-            )
-            response_body = json.loads(response['body'].read())
-            return {"output": {"text": response_body['content'][0]['text']}}
+            return get_non_rag_response(questions)
+           
     except Exception as e:
         st.error(f"Error retrieving answers: {str(e)}")
+        return None
+
+
+def get_non_rag_response(questions):
+    """Helper function for non-RAG responses"""
+    try:
+        response = bedrockRuntime.invoke_model(
+            modelId=CLAUDE_MODEL_ID,
+            contentType='application/json',
+            accept='application/json',
+            body=json.dumps({
+                "anthropic_version": "bedrock-2023-05-31",
+                "max_tokens": 4096,
+                "messages": [
+                    {"role": "user", "content": questions}
+                ]
+            })
+        )
+        response_body = json.loads(response['body'].read())
+        return {"output": {"text": response_body['content'][0]['text']}}
+    except Exception as e:
+        st.error(f"Non-RAG Error: {str(e)}")
         return None
 
 def main():
@@ -87,14 +116,6 @@ def main():
     st.sidebar.subheader('**About**')
     st.sidebar.info("Blaize Bazaar uses Knowledge Bases for Amazon Bedrock to assist humans by answering product catalog and inventory questions based on product descriptions.")
     
-    # Add model selection to sidebar
-    st.sidebar.subheader("Select an LLM")
-    selected_model = st.sidebar.selectbox(
-        "Choose a model:",
-        list(MODEL_ARNS.keys()),
-        index=0 # Default to the first model (Claude 3.5 Sonnet)
-    )
-
     # Add RAG toggle to sidebar
     use_rag = st.sidebar.toggle("Use RAG")
     
@@ -142,40 +163,41 @@ def main():
                 with st.chat_message(message['role'], avatar='static/ai_chat_icon.png' if message['role'] == 'assistant' else None):
                     st.markdown(message['text'])
 
-            if user_question and selected_model:
+            if user_question:
                 # Display user message in chat message container
                 with st.chat_message('user'):
                     st.markdown(user_question)
                     # Add user message to chat history
-                    st.session_state.chat_history.append({"role":'user', "text":user_question})
+                    st.session_state.chat_history.append({"role": 'user', "text": user_question})
 
-                response = getAnswers(user_question, selected_model, use_rag)
+                response = getAnswers(user_question, use_rag)
                 if response:
                     answer = response['output']['text']
 
                     # Display assistant response in chat message container
                     with st.chat_message('assistant', avatar='static/ai_chat_icon.png'):
-                        st.subheader(f"Response from {selected_model} ({'RAG' if use_rag else 'Non-RAG'})")
                         st.write_stream(stream_data(answer))
-            
-                        st.session_state.chat_history.append({"role":'assistant', "text": f"{selected_model} ({'RAG' if use_rag else 'Non-RAG'}): {answer}"})
 
-                        if use_rag:
+                        st.session_state.chat_history.append({"role": 'assistant', "text": f"Claude 3.5 ({'RAG' if use_rag else 'Non-RAG'}): {answer}"})
+
+                        if use_rag and 'citations' in response:
                             try:
-                                if len(response['citations'][0]['retrievedReferences']) != 0:
-                                    doc_url = response['citations'][0]['retrievedReferences'][0]['location']['s3Location']['uri']
-                                    st.markdown(f"<span style='color:#FFDA33'>Source Document: </span>{doc_url}", unsafe_allow_html=True)
+                                references = response.get('citations', [{}])[0].get('retrievedReferences', [])
+                                if references:
+                                    for ref in references:
+                                        if 'location' in ref and 's3Location' in ref['location']:
+                                            doc_url = ref['location']['s3Location']['uri']
+                                            st.markdown(f"<span style='color:#FFDA33'>Source Document: </span>{doc_url}", unsafe_allow_html=True)
                                 else:
-                                    st.markdown(f"<span style='color:red'>No context provided.</span>", unsafe_allow_html=True)
-                            except:
-                                st.error("An error occurred while processing the citations.")
+                                    st.markdown(f"<span style='color:#808080'>No relevant sources found in the knowledge base.</span>", unsafe_allow_html=True)
+                            except Exception as e:
+                                st.markdown(f"<span style='color:#808080'>No citations available for this response.</span>", unsafe_allow_html=True)
                         else:
                             st.markdown(f"<span style='color:#FFDA33'>Non-RAG response (no citations available)</span>", unsafe_allow_html=True)
-                        
-                    sentiment_mapping = [":material/thumb_down:", ":material/thumb_up:"]
+
                     selected = st.feedback("thumbs")
                     if selected is not None:
-                        st.markdown(f"You selected: {sentiment_mapping[selected]}")
+                        st.success("Thank you for your feedback! ")
 
     with tab2:
         st.image('static/KB_Chatbot_Arch.png', use_column_width=True)
@@ -186,23 +208,42 @@ with st.sidebar:
         st.session_state.conversation = []
 
     def delete_documents_s3():
-        s3 = boto3.resource('s3')
-        bucket = s3.Bucket(os.environ['S3_KB_BUCKET'])
-        # Delete all objects in the bucket
-        bucket.objects.all().delete()
-        st.success('Documents deleted successfully! ✅')
-        # After deleting documents, trigger the Lambda function
-        lambda_client = boto3.client('lambda')
-        function_name = 'bedrock-knowledge-base-poc-auto-sync'
         try:
-            lambda_client.invoke(
-                FunctionName=function_name,
-                InvocationType='Event'
-        )
-            print(f"Lambda function {function_name} invoked successfully.")
+            # Create S3 client with explicit region
+            s3 = boto3.resource('s3', region_name=os.environ.get('AWS_REGION', 'us-west-2'))
+            bucket = s3.Bucket(os.environ['S3_KB_BUCKET'])
+        
+            # Delete all objects in the bucket
+            bucket.objects.all().delete()
+            st.success('Documents deleted successfully! ✅')
+        
+            # Create Lambda client with explicit region
+            lambda_client = boto3.client(
+                'lambda',
+                region_name=os.environ.get('AWS_REGION', 'us-west-2'),
+                config=Config(
+                    retries={
+                        'max_attempts': 3,
+                        'mode': 'standard'
+                    }
+                )
+            )
+        
+            function_name = os.environ.get('LAMBDA_FUNCTION_NAME', 'bedrock-knowledge-base-poc-auto-sync')
+        
+            try:
+                response = lambda_client.invoke(
+                    FunctionName=function_name,
+                    InvocationType='Event'
+                )
+                st.info(f"Lambda function {function_name} triggered for KB sync.")
+            except Exception as e:
+                st.error(f"Error invoking Lambda function: {str(e)}")
+            
         except Exception as e:
-            print(f"Error invoking Lambda function: {e}")
-        clear_chat_history()
+            st.error(f"Error deleting documents: {str(e)}")
+        finally:
+            clear_chat_history()
     
     col1, col2 = st.columns([1,1])
     with col1:
