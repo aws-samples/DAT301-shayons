@@ -105,7 +105,7 @@ def main():
         sample_question = st.selectbox(
             "Select a sample question or enter your own below:",
             (
-                "What is Blaize Bazaar's current return policy?",
+                "What is Blaize Bazaar's return policy?",
                 "How many days do I have to return a product?",
                 "How do I initiate a return?",
                 "What are some emerging trends in e-commerce for 2024?",
