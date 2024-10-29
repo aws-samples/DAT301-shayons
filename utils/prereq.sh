@@ -14,10 +14,7 @@ export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
 export AWS_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
 echo "Setting AWS Region to: $AWS_REGION"
 
-export AWSREGION=$AWS_REGION
-
 echo "export AWS_REGION='$AWS_REGION'" >> ~/.bashrc
-echo "export AWSREGION='$AWS_REGION'" >> ~/.bashrc
 source ~/.bashrc
 
 function check_aws_cli()
@@ -312,27 +309,14 @@ function configure_pg()
     # Set environment variables for the current session
     export PGDATABASE=postgres
     export PGPORT=5432
-    export PGVECTOR_DRIVER='psycopg2'
-    export PGVECTOR_USER=$PGUSER
-    export PGVECTOR_PASSWORD=$PGPASSWORD
-    export PGVECTOR_HOST=$PGHOST
-    export PGVECTOR_PORT=5432
-    export PGVECTOR_DATABASE='postgres'
 
     # Persist values for future sessions
     echo "export PGUSER='$PGUSER'" >> ~/.bash_profile
     echo "export PGPASSWORD='$PGPASSWORD'" >> ~/.bash_profile
     echo "export PGHOST='$PGHOST'" >> ~/.bash_profile
     echo "export AWS_REGION='$AWS_REGION'" >> ~/.bash_profile
-    echo "export AWSREGION='$AWS_REGION'" >> ~/.bash_profile
     echo "export PGDATABASE='postgres'" >> ~/.bash_profile
     echo "export PGPORT=5432" >> ~/.bash_profile
-    echo "export PGVECTOR_DRIVER='psycopg2'" >> ~/.bash_profile
-    echo "export PGVECTOR_USER='$PGUSER'" >> ~/.bash_profile
-    echo "export PGVECTOR_PASSWORD='$PGPASSWORD'" >> ~/.bash_profile
-    echo "export PGVECTOR_HOST='$PGHOST'" >> ~/.bash_profile
-    echo "export PGVECTOR_PORT=5432" >> ~/.bash_profile
-    echo "export PGVECTOR_DATABASE='postgres'" >> ~/.bash_profile
 
     source ~/.bash_profile
 
