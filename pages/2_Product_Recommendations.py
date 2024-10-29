@@ -20,7 +20,7 @@ bedrock = boto3.client(
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
-CLAUDE_MODEL_ID = "anthropic.claude-3-haiku-20240307-v1:0"
+CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 # Helper functions
 @st.cache_data
@@ -88,7 +88,7 @@ def similarity_search(query_embedding, top_k=5):
 # Bedrock functions
 def generate_embedding(text):
     body = json.dumps({"inputText": text})
-    modelId = 'amazon.titan-embed-text-v1'
+    modelId = 'amazon.titan-embed-text-v2:0'
     accept = 'application/json'
     contentType = 'application/json'
 
