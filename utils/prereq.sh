@@ -48,14 +48,14 @@ DB_NAME=${PGDATABASE}
 DB_USER=${PGUSER}
 DB_PASSWORD=${PGPASSWORD}
     
-# AWS configuration
+# AWS configuration, replace S3  KB bucket placeholder value with actual value from your CloudFormation output
 AWS_REGION=${AWS_REGION}
-S3_KB_BUCKET=your_S3_KB_bucket_here
+S3_KB_BUCKET=your_knowledge_bucket_here
 
 # Bedrock configuration
 # Note: Replace these placeholder values with actual values from your CloudFormation output
 BEDROCK_KB_ID=your_knowledge_base_id_here
-BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
+CLAUDE_3_5_SONNET_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
 # Add any other environment variables here
 EOL
     
