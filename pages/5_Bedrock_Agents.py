@@ -31,22 +31,6 @@ def get_base64_of_bin_file(bin_file):
     data = f.read()
     return base64.b64encode(data).decode()
 
-@st.cache_data
-def set_png_as_page_bg(png_file):
-    bin_str = get_base64_of_bin_file(png_file)
-    page_bg_img = f"""
-    <style>
-     .stApp {{
-        background-image: url("data:image/jpg;base64,%s");
-        background-size: cover;
-        }}
-        </style>
-        """ % bin_str
-    st.markdown(page_bg_img, unsafe_allow_html=True)
-    return
-
-set_png_as_page_bg('static/dark-grunge-style-scratched-metal-surface.jpg')
-
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
