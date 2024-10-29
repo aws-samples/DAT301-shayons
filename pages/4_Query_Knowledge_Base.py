@@ -6,6 +6,7 @@ import os
 import json
 from dotenv import load_dotenv
 from botocore.config import Config
+from datetime import datetime
 
 load_dotenv()
 
@@ -137,6 +138,15 @@ def main():
                 "What payment methods does Blaize Bazaar accept?"
             ),
         )
+    
+    st.write ("---")
+    
+    # Add version info
+    st.sidebar.divider()
+    st.sidebar.caption(f"""
+    Version: 1.0.0
+    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
+    """)
 
     with tab1:
         # Create a container for the chat history

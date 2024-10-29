@@ -1,5 +1,5 @@
 import boto3
-import datetime
+from datetime import datetime
 import streamlit as st
 import os
 import pandas as pd
@@ -35,6 +35,15 @@ def main():
     
     st.sidebar.title('**About**')
     st.sidebar.info("This page allows you to upload documents (PDF or CSV) to the Bedrock Knowledge Base for Blaize Bazaar.")
+    
+    st.write ("---")
+    
+    # Add version info
+    st.sidebar.divider()
+    st.sidebar.caption(f"""
+    Version: 1.0.0
+    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
+    """)
 
     document = st.file_uploader("Upload Documents (PDF or CSV)", type=['pdf', 'csv'], key='file')
 
