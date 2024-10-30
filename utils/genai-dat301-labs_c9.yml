@@ -921,9 +921,36 @@ Resources:
                 Resource: "*"
 
   # begin Cloud9-----------------------------------------------
+  # Cloud9 SSM Instance Profile and Role
+  AWSCloud9SSMInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: AWSCloud9SSMInstanceProfile
+      Path: /cloud9/
+      Roles: 
+        - !Ref AWSCloud9SSMAccessRole
+
+  AWSCloud9SSMAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AWSCloud9SSMAccessRole
+      Path: /service-role/
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+                - cloud9.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSCloud9SSMInstanceProfile
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  # Update Cloud9 Instance to use SSM Instance Profile
   Cloud9Instance:
     Type: AWS::Cloud9::EnvironmentEC2
-    #Condition: isInWS
     Properties:
       Name: !Sub ${TemplateName}-Cloud9-IDE
       Description: !Sub ${TemplateName} - Cloud9 IDE to support Generative AI with pgvector labs
