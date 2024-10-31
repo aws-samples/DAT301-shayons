@@ -466,7 +466,7 @@ function check_installation()
     # Check Required Python Packages
     echo "Checking required Python packages..."
     source "${HOME}/environment/${PROJ_NAME}/venv-blaize-bazaar/bin/activate" &> /dev/null
-    required_packages=("psycopg2-binary" "boto3" "pandas" "numpy")
+    required_packages=("psycopg" "boto3" "pandas" "numpy")
     packages_ok=true
     for package in "${required_packages[@]}"; do
         if ! pip show "$package" &> /dev/null; then
