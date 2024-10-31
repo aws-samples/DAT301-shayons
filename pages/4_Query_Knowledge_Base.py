@@ -29,7 +29,7 @@ bedrockRuntime = session.client('bedrock-runtime', config=config)
 knowledgeBaseId = os.environ.get('BEDROCK_KB_ID')
 
 # Define Claude model ID
-CLAUDE_MODEL_ID = os.environ.get('BEDROCK_CLAUDE_MODEL_ARN')
+CLAUDE_MODEL_ID = os.environ.get('BEDROCK_CLAUDE_MODEL_ID')
 
 logo_url = "static/Blaize.png"
 st.sidebar.image(logo_url, use_column_width=True)
@@ -240,7 +240,7 @@ with st.sidebar:
                 )
             )
         
-            function_name = os.environ.get('LAMBDA_FUNCTION_NAME', 'bedrock-knowledge-base-poc-auto-sync')
+            function_name = os.environ.get('LAMBDA_FUNCTION_NAME')
         
             try:
                 response = lambda_client.invoke(
