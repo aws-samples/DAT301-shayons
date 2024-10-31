@@ -1,8 +1,0 @@
-BEDROCK_KB_ID='your-KB-ID-here'
-BEDROCK_CLAUDE_MODEL_ARN='arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0'
-S3_KB_BUCKET='your-S3-KB-bucket'
-AWS_REGION='us-west-2'
-DB_HOST='Aurora DB Host'
-DB_NAME='DB Name'
-DB_USER='DB User'
-DB_PASSWORD='your password'
