@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from botocore.config import Config
 from datetime import datetime
 
+# Load environment variables and set up configurations
 load_dotenv()
 
 # Session and env variables

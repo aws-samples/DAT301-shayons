@@ -4,6 +4,10 @@ import streamlit as st
 import os
 import pandas as pd
 from streamlit_pdf_viewer import pdf_viewer
+from dotenv import load_dotenv
+
+# Load environment variables and set up configurations
+load_dotenv()
 
 # Create the S3 client
 @st.cache_resource
@@ -12,7 +16,7 @@ def get_s3_client():
 
 def process_file(document):
     name, extension = os.path.splitext(document.name)
-    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     file_name = f"{name}_{timestamp}{extension}"
     return file_name
 

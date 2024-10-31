@@ -4,10 +4,14 @@ import base64
 from services import bedrock_agent_runtime
 import streamlit as st
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables and set up configurations
+load_dotenv()
 
 # Get config from environment variables
-agent_id = os.environ.get('AGENT_ID', '<your agent id>')
-agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID', '<your agent alias id>')
+agent_id = os.environ.get('BEDROCK_AGENT_ID')
+agent_alias_id = os.environ.get('BEDROCK_AGENT_ALIAS_ID')
 
 @st.cache_data
 def init_state():

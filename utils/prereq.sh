@@ -56,7 +56,8 @@ S3_KB_BUCKET=your_knowledge_bucket_here
 # Note: Replace these placeholder values with actual values from your CloudFormation output
 BEDROCK_KB_ID=your_knowledge_base_id_here
 BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
-# Add any other environment variables here
+BEDROCK_AGENT_ID=your_agent_id_here
+BEDROCK_AGENT_ALIAS_ID=your_agent_alias_id_here
 EOL
     
     echo "Created .env file at $env_file"
