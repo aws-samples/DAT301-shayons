@@ -44,7 +44,7 @@ bedrock = boto3.client(
 def test_bedrock_connection():
     try:
         response = bedrock.invoke_model(
-            modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+            modelId="anthropic.claude-3-5-sonnet-20240620-v1:0",
             contentType="application/json",
             accept="application/json",
             body=json.dumps({
@@ -64,7 +64,7 @@ def test_bedrock_connection():
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
-CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"  # Update this to the Bedrock model ID for Claude
+CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"  # Update this to the Bedrock model ID for Claude
 
 # Helper functions
 @st.cache_data
