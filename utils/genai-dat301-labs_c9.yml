@@ -922,13 +922,13 @@ Resources:
 
   # begin Cloud9-----------------------------------------------
   # Cloud9 SSM Instance Profile and Role
-  AWSCloud9SSMInstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      InstanceProfileName: AWSCloud9SSMInstanceProfile
-      Path: /cloud9/
-      Roles: 
-        - !Ref AWSCloud9SSMAccessRole
+  # AWSCloud9SSMInstanceProfile:
+  #   Type: AWS::IAM::InstanceProfile
+  #   Properties:
+  #     InstanceProfileName: AWSCloud9SSMInstanceProfile
+  #     Path: /cloud9/
+  #     Roles: 
+  #       - !Ref AWSCloud9SSMAccessRole
 
   AWSCloud9SSMAccessRole:
     Type: AWS::IAM::Role
@@ -1210,7 +1210,7 @@ Resources:
         - Arn
       Runtime: python3.11
       MemorySize: 2056
-      Timeout: '600'
+      Timeout: '900'
       Code:
         ZipFile: |
           from __future__ import print_function
@@ -1221,7 +1221,7 @@ Resources:
           import traceback
           import cfnresponse
           import logging
-
+  
           def lambda_handler(event, context):
               print('event: {}'.format(event))
               print('context: {}'.format(context))
@@ -1232,47 +1232,91 @@ Resources:
                       # Open AWS clients
                       ec2 = boto3.client('ec2')
 
-                      # Get the InstanceId of the Cloud9 IDE
-                      instance = ec2.describe_instances(Filters=[{'Name': 'tag:Name','Values': ['aws-cloud9-'+event['ResourceProperties']['StackName']+'-Cloud9-IDE-'+event['ResourceProperties']['EnvironmentId']]}])['Reservations'][0]['Instances'][0]
-                      logging.info('instance: {}'.format(instance))
+                      # Construct the Cloud9 instance name
+                      cloud9_instance_name = 'aws-cloud9-{}-Cloud9-IDE-{}'.format(
+                          event['ResourceProperties']['StackName'],
+                          event['ResourceProperties']['EnvironmentId']
+                      )
+                      print('Looking for instance with name: {}'.format(cloud9_instance_name))
+
+                      # Add retry logic for instance lookup
+                      max_retries = 10
+                      retry_delay = 30
+                      instance = None
+
+                      for attempt in range(max_retries):
+                          try:
+                              response = ec2.describe_instances(
+                                  Filters=[{
+                                      'Name': 'tag:Name',
+                                      'Values': [cloud9_instance_name]
+                                  }]
+                              )
+
+                              if response['Reservations'] and response['Reservations'][0]['Instances']:
+                                   instance = response['Reservations'][0]['Instances'][0]
+                                   break
+
+                              print(f"Attempt {attempt + 1}: Instance not found, waiting {retry_delay} seconds...")
+                              time.sleep(retry_delay)
+                          except Exception as e:
+                              print(f"Error on attempt {attempt + 1}: {str(e)}")
+                              if attempt == max_retries - 1:
+                                  raise
+                              time.sleep(retry_delay)
+
+                      if not instance:
+                          raise Exception(f"Cloud9 instance '{cloud9_instance_name}' not found after {max_retries} attempts")
 
                       # Create the IamInstanceProfile request object
                       iam_instance_profile = {
                           'Arn': event['ResourceProperties']['LabIdeInstanceProfileArn'],
                           'Name': event['ResourceProperties']['LabIdeInstanceProfileName']
                       }
-                      logging.info('iam_instance_profile: {}'.format(iam_instance_profile))
+                      print('iam_instance_profile: {}'.format(iam_instance_profile))
 
-                      # Wait for Instance to become ready before adding Role
-                      instance_state = instance['State']['Name']
-                      logging.info('instance_state: {}'.format(instance_state))
-                      while instance_state != 'running':
+                      # Wait for Instance to become ready
+                      waiter = ec2.get_waiter('instance_running')
+                      waiter.wait(
+                          InstanceIds=[instance['InstanceId']],
+                          WaiterConfig={'Delay': 15, 'MaxAttempts': 40}
+                      )
+
+                      # Check existing profile associations
+                      desc_profile = ec2.describe_iam_instance_profile_associations(
+                          Filters=[{'Name': 'instance-id', 'Values': [instance['InstanceId']]}]
+                      )
+
+                      if desc_profile["IamInstanceProfileAssociations"]:
+                          print("Removing existing role association")
+                          ec2.disassociate_iam_instance_profile(
+                              AssociationId=desc_profile["IamInstanceProfileAssociations"][0]["AssociationId"]
+                          )
+                          # Add small delay after disassociation
                           time.sleep(5)
-                          instance_state = ec2.describe_instances(InstanceIds=[instance['InstanceId']])
-                          logging.info('instance_state: {}'.format(instance_state))
-                      # Check if any role is associated with the instance 
-                      desc_profile = ec2.describe_iam_instance_profile_associations(Filters=[ {'Name': 'instance-id', 'Values': [instance['InstanceId']]}])
-                      if len(desc_profile["IamInstanceProfileAssociations"]) > 0 :
-                        print("Existing associations of the role identified. Removing it ")
-                        print(desc_profile)
-                        response = ec2.disassociate_iam_instance_profile(AssociationId=desc_profile["IamInstanceProfileAssociations"][0]["AssociationId"])
-                      else:
-                        print("No existing association of role")
 
-                      # attach instance profile
-                      response = ec2.associate_iam_instance_profile(IamInstanceProfile=iam_instance_profile, InstanceId=instance['InstanceId'])
-                      logging.info('response - associate_iam_instance_profile: {}'.format(response))
-                      r_ec2 = boto3.resource('ec2')
+                      # Attach new instance profile
+                      response = ec2.associate_iam_instance_profile(
+                          IamInstanceProfile=iam_instance_profile,
+                          InstanceId=instance['InstanceId']
+                      )
+                      print('Profile association response: {}'.format(response))
 
-                      responseData = {'Success': 'Started bootstrapping for instance: '+instance['InstanceId']}
+                      responseData = {
+                          'Success': 'Started bootstrapping for instance: ' + instance['InstanceId'],
+                          'InstanceId': instance['InstanceId']
+                      }
                       cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
 
                   except Exception as e:
-                      logging.error(e, exc_info=True)
-                      responseData = {'Error': str(traceback.format_exc(e))}
+                      print('Exception occurred: {}'.format(str(e)))
+                      traceback_str = traceback.format_exc()
+                      print('Traceback: {}'.format(traceback_str))
+                      responseData = {'Error': str(e)}
                       cfnresponse.send(event, context, cfnresponse.FAILED, responseData, 'CustomResourcePhysicalID')
               else:
-                cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, responseData, 'CustomResourcePhysicalID')
+  # end Cloud9 -----------------------------------------------
 
   # end Cloud9 -----------------------------------------------
 
