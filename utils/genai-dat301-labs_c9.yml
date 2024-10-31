@@ -956,7 +956,7 @@ Resources:
       Description: !Sub ${TemplateName} - Cloud9 IDE to support Generative AI with pgvector labs
       AutomaticStopTimeMinutes: 240
       SubnetId: !Ref Subnet1
-      InstanceType: m5.4xlarge
+      InstanceType: m5.8xlarge
       ImageId: amazonlinux-2-x86_64
       ConnectionType: CONNECT_SSM
       OwnerArn: 
