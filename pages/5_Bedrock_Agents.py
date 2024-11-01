@@ -61,11 +61,11 @@ with st.sidebar:
             (
                 "Can you present Blaize Bazaar's product inventory in a tabular format?",
                 "What's the current status of Blaize Bazaar's inventory?",
-                "Our Jobst Stocking Donner (Product Id = B00120238E) stock is getting low. What can we do about that?",
-                "Can we place an order for more of our bestselling product Victorinox Swiss Army Multi-Tool (Product Id = B0001P151W)?",
-                "I'm concerned about our newly listed Renunciation: A Game of Capitalism and Karma (Product Id = 0593235967) supply. Can we address that?",
-                "Can you get me pricing info on Victorinox Swiss Army Multi-Tool (Product Id = B0001P151W)?",
-                "How much would a customer pay for 3M High Temperature Flue Tape (Product Id = B00004Z4DS)?"
+                "Our Scotch Heavy Duty Packaging (Product Id = B000087KUA) stock is getting low. What can we do about that?",
+                "Can we place an order for more of our bestselling game Grand Theft Auto (Product Id = B0007TS24U)?",
+                "I'm concerned about our newly listed Electronic Arcade Claw Machine (Product Id = B000KS52D2) supply. Can we address that?",
+                "Can you get me pricing info on The League of Extraordinary Gentlemen (Product Id = B000A3XYE6)?",
+                "How much would a customer pay for Taylor Battery Free Analog Scales for Body Weight (Product Id = B001FWXFNQ)?"
             ),
         )
 
