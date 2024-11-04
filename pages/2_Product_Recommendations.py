@@ -478,7 +478,7 @@ def main():
     st.subheader('Product Recommendations - Blaize Bazaar', divider='orange')
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
-    st.sidebar.info("This page provides product recommendations using AI-powered similarity search and analysis, comparing traditional keyword-based search with semantic search.")
+    st.sidebar.info("This page presents product recommendations utilizing AI-driven similarity search and analysis, contrasting traditional keyword-based search with advanced semantic search.")
     
     # Show login/signup if user is not logged in
     if not st.session_state.user_id:
