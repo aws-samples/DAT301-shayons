@@ -64,7 +64,7 @@ def test_bedrock_connection():
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
-CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"  # Update this to the Bedrock model ID for Claude
+CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 
 # Helper functions
 @st.cache_data

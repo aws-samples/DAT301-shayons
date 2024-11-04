@@ -20,7 +20,7 @@ bedrock = boto3.client(service_name='bedrock-runtime')
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
-CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 
 # Database functions
 def get_db_connection():
