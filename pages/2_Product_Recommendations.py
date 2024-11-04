@@ -10,25 +10,17 @@ import base64
 from botocore.exceptions import ClientError
 from datetime import datetime
 import time
+import hashlib
 
 # Load environment variables and set up configurations
 load_dotenv()
 
 # Initialize Bedrock client
-bedrock = boto3.client(
-    service_name='bedrock-runtime', region_name=os.environ.get('AWS_REGION')
-)
+bedrock = boto3.client(service_name='bedrock-runtime')
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
-CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20240620-v1:0"
-
-# Helper functions
-@st.cache_data
-def get_base64_of_bin_file(bin_file):
-    with open(bin_file, "rb") as f:
-        data = f.read()
-        return base64.b64encode(data).decode()
+CLAUDE_MODEL_ID = "anthropic.claude-3-5-sonnet-20241022-v2:0"
 
 # Database functions
 def get_db_connection():
@@ -39,6 +31,247 @@ def get_db_connection():
         password=os.getenv("DB_PASSWORD"),
         port=os.getenv("DB_PORT", "5432")
     )
+
+
+def init_user_tables():
+    """Initialize user-related database tables if they don't exist"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            # Create users table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS bedrock_integration.users (
+                    user_id SERIAL PRIMARY KEY,
+                    username VARCHAR(50) UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            
+            # Create simplified user preferences table with unique constraint on user_id
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS bedrock_integration.user_preferences (
+                    preference_id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES bedrock_integration.users(user_id),
+                    category_preferences TEXT[],
+                    price_range_min NUMERIC,
+                    price_range_max NUMERIC,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(user_id)
+                );
+            """)
+            
+            # Create user search history table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS bedrock_integration.user_search_history (
+                    history_id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES bedrock_integration.users(user_id),
+                    search_query TEXT,
+                    search_timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+            conn.commit()
+
+def hash_password(password):
+    """Create a secure hash of the password"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def create_user(username, password):
+    """Create a new user account"""
+    password_hash = hash_password(password)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute("""
+                    INSERT INTO bedrock_integration.users (username, password_hash)
+                    VALUES (%s, %s)
+                    RETURNING user_id
+                """, (username, password_hash))
+                user_id = cur.fetchone()[0]
+                conn.commit()
+                return user_id
+            except psycopg.Error as e:
+                st.error(f"Error creating user: {e}")
+                return None
+
+def authenticate_user(username, password):
+    """Authenticate user credentials"""
+    password_hash = hash_password(password)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT user_id, username
+                FROM bedrock_integration.users
+                WHERE username = %s AND password_hash = %s
+            """, (username, password_hash))
+            result = cur.fetchone()
+            return result if result else None
+
+def save_user_preferences(user_id, categories, min_price, max_price):
+    """Save or update user preferences"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            try:
+                # First, check if preferences exist for this user
+                cur.execute("""
+                    SELECT 1 FROM bedrock_integration.user_preferences WHERE user_id = %s
+                """, (user_id,))
+                
+                if cur.fetchone() is None:
+                    # Insert new preferences
+                    cur.execute("""
+                        INSERT INTO bedrock_integration.user_preferences 
+                        (user_id, category_preferences, price_range_min, price_range_max)
+                        VALUES (%s, %s, %s, %s)
+                    """, (user_id, categories, min_price, max_price))
+                else:
+                    # Update existing preferences
+                    cur.execute("""
+                        UPDATE bedrock_integration.user_preferences
+                        SET category_preferences = %s,
+                            price_range_min = %s,
+                            price_range_max = %s,
+                            last_updated = CURRENT_TIMESTAMP
+                        WHERE user_id = %s
+                    """, (categories, min_price, max_price, user_id))
+                
+                conn.commit()
+                return True
+            except psycopg.Error as e:
+                st.error(f"Error saving preferences: {e}")
+                conn.rollback()
+                return False
+
+def get_user_preferences(user_id):
+    """Retrieve user preferences"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT category_preferences, price_range_min, price_range_max
+                FROM bedrock_integration.user_preferences
+                WHERE user_id = %s
+            """, (user_id,))
+            return cur.fetchone()
+
+def get_personalized_initial_recommendations(user_id, limit=5):
+    """Get initial recommendations based on user preferences"""
+    preferences = get_user_preferences(user_id)
+    if not preferences:
+        return None
+    
+    categories, min_price, max_price = preferences
+    
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DISTINCT "productId", product_description, category_name, stars, price, 
+                       boughtinlastmonth, imgURL, producturl
+                FROM bedrock_integration.product_catalog
+                WHERE category_name = ANY(%s)
+                AND price BETWEEN %s AND %s
+                ORDER BY stars DESC, boughtinlastmonth DESC
+                LIMIT %s
+            """, (categories, min_price, max_price, limit))
+            results = cur.fetchall()
+            
+    return pd.DataFrame(results, columns=[
+        'productId', 'product_description', 'category_name', 'stars', 
+        'price', 'boughtinlastmonth', 'imgURL', 'producturl'
+    ])
+
+def log_search_history(user_id, search_query):
+    """Log user search queries"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO bedrock_integration.user_search_history 
+                (user_id, search_query)
+                VALUES (%s, %s)
+            """, (user_id, search_query))
+            conn.commit()
+
+def show_login_signup():
+    """Display login/signup interface"""
+    st.sidebar.subheader("Login / Sign Up")
+    action = st.sidebar.radio("Choose action:", ("Login", "Sign Up"))
+    
+    if action == "Login":
+        username = st.sidebar.text_input("Username")
+        password = st.sidebar.text_input("Password", type="password")
+        if st.sidebar.button("Login"):
+            user = authenticate_user(username, password)
+            if user:
+                st.session_state.user_id = user[0]
+                st.session_state.username = user[1]
+                st.success(f"Welcome back, {username}!")
+                st.rerun()
+            else:
+                st.error("Invalid username or password")
+    
+    else:  # Sign Up
+        username = st.sidebar.text_input("Choose username")
+        password = st.sidebar.text_input("Choose password", type="password")
+        confirm_password = st.sidebar.text_input("Confirm password", type="password")
+        if st.sidebar.button("Sign Up"):
+            if password != confirm_password:
+                st.error("Passwords don't match!")
+            elif len(password) < 6:
+                st.error("Password must be at least 6 characters long")
+            else:
+                user_id = create_user(username, password)
+                if user_id:
+                    st.success("Account created successfully! Please login.")
+                    st.session_state.show_preferences = True
+
+def show_preference_settings():
+    """Display simplified preference settings interface"""
+    st.subheader("Set Your Shopping Preferences")
+    
+    # Get available categories from the product catalog
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT DISTINCT category_name FROM bedrock_integration.product_catalog")
+            available_categories = [cat[0] for cat in cur.fetchall()]
+    
+    # Get existing preferences if any
+    current_preferences = get_user_preferences(st.session_state.user_id)
+    
+    # Set defaults based on current preferences or defaults
+    default_categories = []
+    default_min_price = 0.0
+    default_max_price = 1000.0
+    
+    if current_preferences:
+        default_categories = current_preferences[0] or []
+        default_min_price = float(current_preferences[1] or 0.0)
+        default_max_price = float(current_preferences[2] or 1000.0)
+    
+    # Preference inputs
+    selected_categories = st.multiselect(
+        "Select your preferred categories:",
+        options=available_categories,
+        default=default_categories
+    )
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        min_price = st.number_input("Minimum price ($)", value=default_min_price, step=10.0)
+    with col2:
+        max_price = st.number_input("Maximum price ($)", value=default_max_price, step=10.0)
+    
+    if st.button("Save Preferences"):
+        if save_user_preferences(
+            st.session_state.user_id,
+            selected_categories,
+            min_price,
+            max_price
+        ):
+            st.success("Preferences saved successfully!")
+            st.session_state.show_preferences = False
+            time.sleep(1)  # Give user time to see the success message
+            st.rerun()
+        else:
+            st.error("Failed to save preferences. Please try again.")
+
 
 def keyword_search(query, top_k=5):
     with get_db_connection() as conn:
@@ -89,7 +322,7 @@ def similarity_search(query_embedding, top_k=5):
 # Bedrock functions
 def generate_embedding(text):
     body = json.dumps({"inputText": text})
-    modelId = 'amazon.titan-embed-text-v2:0'
+    modelId = 'amazon.titan-embed-text-v1'
     accept = 'application/json'
     contentType = 'application/json'
 
@@ -174,7 +407,7 @@ def show_product_recommendations():
         "duffel bags for the gym",
         "eco-friendly cleaning products",
         "gift for a tech-savvy teenager",
-        "wirless blutooth headfones",
+        "wireless blutooth headfones",
         "outdoor cooking equipment",
         "vacation-ready camera",
         "stylish but professional attire for a creative office",
@@ -230,20 +463,51 @@ def show_product_recommendations():
 
 def main():
     st.set_page_config(page_title="Product Recommendations - Blaize Bazaar", page_icon="🛍️", layout="wide")
+    
+    # Initialize session state
+    if 'user_id' not in st.session_state:
+        st.session_state.user_id = None
+    if 'username' not in st.session_state:
+        st.session_state.username = None
+    if 'show_preferences' not in st.session_state:
+        st.session_state.show_preferences = False
+    
+    # Initialize database tables
+    init_user_tables()
+    
     st.subheader('Product Recommendations - Blaize Bazaar', divider='orange')
     st.sidebar.image(LOGO_URL, use_column_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("This page provides product recommendations using AI-powered similarity search and analysis, comparing traditional keyword-based search with semantic search.")
     
-    st.write ("---")
+    # Show login/signup if user is not logged in
+    if not st.session_state.user_id:
+        show_login_signup()
+        st.info("Please log in or sign up to see personalized recommendations")
+        return
     
-    # Add version info
-    st.sidebar.divider()
-    st.sidebar.caption(f"""
-    Version: 1.0.0
-    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
-    """)
-
+    # Show preference settings if needed
+    if st.session_state.show_preferences:
+        show_preference_settings()
+        return
+    
+    # Show user menu in sidebar
+    st.sidebar.title(f"Welcome, {st.session_state.username}!")
+    if st.sidebar.button("Update Preferences"):
+        st.session_state.show_preferences = True
+        st.rerun()
+    if st.sidebar.button("Logout"):
+        st.session_state.user_id = None
+        st.session_state.username = None
+        st.rerun()
+    
+    # Show personalized initial recommendations
+    st.subheader("Recommended for You")
+    initial_recommendations = get_personalized_initial_recommendations(st.session_state.user_id)
+    if initial_recommendations is not None:
+        display_products(initial_recommendations, 0)
+    
+    # Show the regular search interface
     show_product_recommendations()
 
 if __name__ == "__main__":
