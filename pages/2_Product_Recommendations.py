@@ -401,17 +401,17 @@ def show_product_recommendations():
     # Example queries dropdown
     example_queries = [
         "Select an example query",
-        "affordable portable computers",
+        "Affordable portable computers",
         "I need something to keep my drinks cold on a picnic",
-        "light jacket for spring evenings",
-        "duffel bags for the gym",
-        "eco-friendly cleaning products",
-        "gift for a tech-savvy teenager",
-        "wireless blutooth headfones",
-        "outdoor cooking equipment",
-        "vacation-ready camera",
-        "stylish but professional attire for a creative office",
-        "cozy home decor"
+        "Light jacket for spring evenings",
+        "Duffel bags for the gym",
+        "Eco-friendly cleaning products",
+        "Gift for a tech-savvy teenager",
+        "Wireless blutooth headfones",
+        "Outdoor cooking equipment",
+        "Vacation-ready camera",
+        "Stylish but professional attire for a creative office",
+        "Cozy home decor"
     ]
     selected_query = st.selectbox("Choose an example query or enter your own:", example_queries)
     
