@@ -322,7 +322,7 @@ def similarity_search(query_embedding, top_k=5):
 # Bedrock functions
 def generate_embedding(text):
     body = json.dumps({"inputText": text})
-    modelId = 'amazon.titan-embed-text-v1'
+    modelId = 'amazon.titan-embed-text-v2:0'
     accept = 'application/json'
     contentType = 'application/json'
 
