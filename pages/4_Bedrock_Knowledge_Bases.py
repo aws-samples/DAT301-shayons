@@ -149,6 +149,8 @@ def main():
     Last Updated: {datetime.now().strftime('%Y-%m-%d')}
     """)
 
+    st.sidebar.image("static/Powered-By_logo-stack_RGB_REV.png", width=150)
+
     with tab1:
         # Create a container for the chat history
         chat_container = st.container(height=800)

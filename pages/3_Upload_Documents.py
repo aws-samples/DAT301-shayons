@@ -49,6 +49,8 @@ def main():
     Last Updated: {datetime.now().strftime('%Y-%m-%d')}
     """)
 
+    st.sidebar.image("static/Powered-By_logo-stack_RGB_REV.png", width=150)
+
     document = st.file_uploader("Upload Documents (PDF or CSV)", type=['pdf', 'csv'], key='file')
 
     if document:

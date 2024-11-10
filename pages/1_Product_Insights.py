@@ -483,6 +483,8 @@ def main():
     Version: 1.0.0
     Last Updated: {datetime.now().strftime('%Y-%m-%d')}
     """)
+
+    st.sidebar.image("static/Powered-By_logo-stack_RGB_REV.png", width=150)
     
     try:
         show_product_insights()
