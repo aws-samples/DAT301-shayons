@@ -5,8 +5,8 @@ if [ -z "$HOME" ]; then
     export HOME=$(getent passwd $(id -un) | cut -d: -f6)
 fi
 
-export DefaultCodeRepository="https://github.com/aws-samples/DAT301-shayons.git"
-export PROJ_NAME="DAT301-shayons"
+export DefaultCodeRepository="https://github.com/aws-samples/DAT301-reinvent-2024.git"
+export PROJ_NAME="DAT301-reinvent-2024"
 export PYTHON_MAJOR_VERSION="3.11"
 export PYTHON_MINOR_VERSION="9"
 export PYTHON_VERSION="${PYTHON_MAJOR_VERSION}.${PYTHON_MINOR_VERSION}"
