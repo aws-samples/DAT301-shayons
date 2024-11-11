@@ -213,7 +213,7 @@ def main():
                         st.success("Thank you for your feedback! ")
 
     with tab2:
-        st.image('static/KB_Chatbot_Arch.png', use_container_width=True)
+        st.image('static/knowledge-base-rag-architecture.png', use_container_width=True)
 
 with st.sidebar:
     def clear_chat_history():
