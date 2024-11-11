@@ -7,8 +7,8 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🛍️ Blaize Bazaar 🛍️")
-st.write("© Powered by [Amazon Bedrock](https://aws.amazon.com/bedrock/) and [Amazon Aurora PostgreSQL-Compatible Edition](https://aws.amazon.com/rds/aurora/)")
+st.markdown("<h1 style='text-align: center'>🛍️ Blaize Bazaar 🛍 </h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center'>© Powered by <a href='https://aws.amazon.com/bedrock/'>Amazon Bedrock</a> and <a href='https://aws.amazon.com/rds/aurora/'>Amazon Aurora PostgreSQL-Compatible Edition</a></p>", unsafe_allow_html=True)
 st.divider()
 col1, col2, col3 = st.columns([1,2,1])
 with col2:
