@@ -182,6 +182,7 @@ def get_top_rated_categories(top_n=10):
     query = get_top_rated_categories.__doc__
     return execute_db_query(query, (top_n,))
 
+# TO-DO
 def get_best_selling_by_category(top_n=10):
     """
     # TO-DO
