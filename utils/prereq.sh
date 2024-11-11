@@ -40,8 +40,8 @@ function create_env_file()
     cd "$repo_dir" || { echo "Failed to change directory to $repo_dir"; return 1; }
     # Create or overwrite the .env file
     cat > "$env_file" << EOL
-
 # Database configuration
+# Note: Don't change these values
 DB_HOST=${PGHOST}
 DB_PORT=${PGPORT}
 DB_NAME=${PGDATABASE}
@@ -49,18 +49,22 @@ DB_USER=${PGUSER}
 DB_PASSWORD=${PGPASSWORD}
     
 # AWS configuration, replace S3  KB bucket placeholder value with actual value from your CloudFormation output
+# Note: Don't change this value
 AWS_REGION=${AWS_REGION}
-S3_KB_BUCKET=your_knowledge_bucket_here
+# Note: Replace this value with actual value from your CloudFormation output
+S3_KB_BUCKET=your_knowledge_base_bucket_here
 
 # Bedrock configuration
-# Note: Replace these placeholder values with actual values from your CloudFormation output
-BEDROCK_KB_ID=your_knowledge_base_id_here
+# Note: Don't change these values
 BEDROCK_CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
 BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
+# Note: Replace these placeholder values with actual values from your CloudFormation output
+BEDROCK_KB_ID=your_knowledge_base_id_here
 BEDROCK_AGENT_ID=your_agent_id_here
 BEDROCK_AGENT_ALIAS_ID=your_agent_alias_id_here
 # Lambda
-LAMBDA_FUNCTION_NAME=your_knowledge_base_auto_sync_lambda_function_name_here
+Note: Don't change this value
+LAMBDA_FUNCTION_NAME=genai-dat-301-labs_BedrockAgent_Lambda
 EOL
     
     echo "Created .env file at $env_file"
