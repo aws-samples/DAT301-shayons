@@ -698,7 +698,7 @@ Resources:
                           """)
 
                           await acur.execute("""
-                          CREATE INDEX ON bedrock_integration.bedrock_kb USING hnsw (embedding vector_cosine_ops) WITH (ef_construction=256);
+                          CREATE INDEX ON bedrock_integration.bedrock_kb USING hnsw (embedding vector_cosine_ops) WITH (ef_construction=64);
                           """)
           
                           await aconn.commit()
