@@ -35,7 +35,7 @@ def main():
     st.subheader('Upload Documents to Bedrock Knowledge Base', divider='orange')
     
     logo_url = "static/Blaize.png"
-    st.sidebar.image(logo_url, use_column_width=True)
+    st.sidebar.image(logo_url, use_container_width=True)
     
     st.sidebar.title('**About**')
     st.sidebar.info("This page allows you to upload documents (PDF or CSV) to the Bedrock Knowledge Base for Blaize Bazaar.")

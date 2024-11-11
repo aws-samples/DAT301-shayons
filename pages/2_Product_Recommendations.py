@@ -476,7 +476,7 @@ def main():
     init_user_tables()
     
     st.subheader('Product Recommendations - Blaize Bazaar', divider='orange')
-    st.sidebar.image(LOGO_URL, use_column_width=True)
+    st.sidebar.image(LOGO_URL, use_container_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("At Blaize Bazaar, we use AI-powered semantic search to match you with products you'll love, going beyond simple keyword matching to understand what you're really looking for.")
     

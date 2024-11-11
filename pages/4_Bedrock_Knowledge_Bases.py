@@ -32,7 +32,7 @@ knowledgeBaseId = os.environ.get('BEDROCK_KB_ID')
 CLAUDE_MODEL_ID = os.environ.get('BEDROCK_CLAUDE_MODEL_ID')
 
 logo_url = "static/Blaize.png"
-st.sidebar.image(logo_url, use_column_width=True)
+st.sidebar.image(logo_url, use_container_width=True)
 
 @st.cache_data
 def get_base64_of_bin_file(bin_file):
@@ -213,7 +213,7 @@ def main():
                         st.success("Thank you for your feedback! ")
 
     with tab2:
-        st.image('static/KB_Chatbot_Arch.png', use_column_width=True)
+        st.image('static/KB_Chatbot_Arch.png', use_container_width=True)
 
 with st.sidebar:
     def clear_chat_history():

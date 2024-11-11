@@ -459,7 +459,7 @@ def main():
     st.subheader('Product Insights - Blaize Bazaar', divider='orange')
     
     # Sidebar
-    st.sidebar.image(LOGO_URL, use_column_width=True)
+    st.sidebar.image(LOGO_URL, use_container_width=True)
     st.sidebar.title('**About**')
     st.sidebar.info("""
     This dashboard provides comprehensive product insights using AI-powered analysis.
