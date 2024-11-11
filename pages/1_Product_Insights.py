@@ -184,14 +184,8 @@ def get_top_rated_categories(top_n=10):
 
 def get_best_selling_by_category(top_n=10):
     """
-    SELECT DISTINCT ON (category_name) 
-           category_name, product_description, boughtinlastmonth
-    FROM bedrock_integration.product_catalog
-    ORDER BY category_name, boughtinlastmonth DESC
-    LIMIT %s
+    # TO-DO
     """
-    query = get_best_selling_by_category.__doc__
-    return execute_db_query(query, (top_n,))
 
 def get_spending_habits():
     """
