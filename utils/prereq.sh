@@ -492,62 +492,21 @@ function check_installation()
     echo "=================================="
 }
 
-# function cp_logfile()
-# {
-
-#     bucket_name="genai-pgv-labs-${AWS_ACCOUNT_ID}-`date +%s`"
-#     echo ${bucket_name}
-#     aws s3 ls | grep ${bucket_name} > /dev/null 2>&1
-#     if [ $? -ne 0 ] ; then
-#         aws s3 mb s3://${bucket_name} --region ${AWS_REGION}
-#     fi
-
-#     aws s3 cp ${HOME}/environment/prereq.log s3://${bucket_name}/prereq_${AWS_ACCOUNT_ID}.txt > /dev/null 
-#     if [ $? -eq 0 ] ; then
-# 	echo "Copied the logfile to bucket ${bucket_name}"
-#     else
-# 	echo "Failed to copy logfile to bucket ${bucket_name}"
-#     fi
-# }
-
 function cp_logfile()
 {
-    # Step 1: Define variables
-    central_bucket_name="dat301-reinvent2024-c9output"
-    central_account_id="619763002613"
-    source_account_id=$(aws sts get-caller-identity --query "Account" --output text)
-    timestamp=$(date +%s)
     log_file="/tmp/bootstrap.log"
+    bucket_name="genai-pgv-labs-${AWS_ACCOUNT_ID}-`date +%s`"
+    echo ${bucket_name}
+    aws s3 ls | grep ${bucket_name} > /dev/null 2>&1
+    if [ $? -ne 0 ] ; then
+        aws s3 mb s3://${bucket_name} --region ${AWS_REGION}
+    fi
 
-    # Step 2: Verify log file exists
-    if [ ! -f "$log_file" ]; then
-        echo "Log file not found at $log_file"
-        return 1
-
-    # Step 3: Assume role in central account
-    temp_credentials=$(aws sts assume-role \
-        --role-arn "arn:aws:iam::${central_account_id}:role/CrossAccountS3Access" \
-        --role-session-name "S3LogUpload")
-
-    # Step 4: If role assumption successful
-    if [ $? -eq 0 ]; then
-        # Step 5: Set temporary credentials
-        export AWS_ACCESS_KEY_ID=$(echo $temp_credentials | jq -r .Credentials.AccessKeyId)
-        export AWS_SECRET_ACCESS_KEY=$(echo $temp_credentials | jq -r .Credentials.SecretAccessKey)
-        export AWS_SESSION_TOKEN=$(echo $temp_credentials | jq -r .Credentials.SessionToken)
-
-        # Step 6: Upload file to S3
-        aws s3 cp "$log_file" "s3://${central_bucket_name}/prereq_logs/${AWS_REGION}/${source_account_id}_${timestamp}.log"
-        upload_status=$?
-
-        # Step 7: Clean up credentials
-        unset AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-
-        # Step 8: Return status
-        return $upload_status
+    aws s3 cp ${log_file} s3://${bucket_name}/prereq_${AWS_ACCOUNT_ID}.txt > /dev/null 
+    if [ $? -eq 0 ] ; then
+	echo "Copied the logfile to bucket ${bucket_name}"
     else
-        echo "Failed to assume role in central account"
-        return 1
+	echo "Failed to copy logfile to bucket ${bucket_name}"
     fi
 }
 
