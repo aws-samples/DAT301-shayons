@@ -391,29 +391,19 @@ function activate_venv()
 function set_bedrock_env_vars() {
     echo "Setting Bedrock and S3 environment variables from CloudFormation outputs..."
     
-    # First, find the correct stack name
-    STACK_NAME=$(aws cloudformation describe-stacks --query 'Stacks[?Contains(StackName, `genai-dat-301-labs`)].StackName' --output text)
+    # Get values directly from CloudFormation outputs without specifying stack name
+    export S3_KB_BUCKET=$(aws cloudformation describe-stacks \
+        --query "Stacks[].Outputs[?(OutputKey == 'BedrockS3Bucket')][].{OutputValue:OutputValue}" --output text)
     
-    if [ -z "$STACK_NAME" ]; then
-        echo "Error: Could not find CloudFormation stack containing 'genai-dat-301-labs'"
-        return 1
-    fi
+    export BEDROCK_KB_ID=$(aws cloudformation describe-stacks \
+        --query "Stacks[].Outputs[?(OutputKey == 'BedrockKnowledgeBaseId')][].{OutputValue:OutputValue}" --output text)
     
-    echo "Found stack: $STACK_NAME"
-    
-    # Get values from CloudFormation outputs using discovered stack name
-    export S3_KB_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-        --query "Stacks[0].Outputs[?OutputKey=='BedrockS3Bucket'].OutputValue" --output text)
-    
-    export BEDROCK_KB_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-        --query "Stacks[0].Outputs[?OutputKey=='BedrockKnowledgeBaseId'].OutputValue" --output text)
-    
-    export BEDROCK_AGENT_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-        --query "Stacks[0].Outputs[?OutputKey=='BedrockAgentId'].OutputValue" --output text)
+    export BEDROCK_AGENT_ID=$(aws cloudformation describe-stacks \
+        --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentId')][].{OutputValue:OutputValue}" --output text)
     
     # Get full alias ID and extract the actual alias part
-    local FULL_ALIAS_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
-        --query "Stacks[0].Outputs[?OutputKey=='BedrockAgentAliasId'].OutputValue" --output text)
+    local FULL_ALIAS_ID=$(aws cloudformation describe-stacks \
+        --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentAliasId')][].{OutputValue:OutputValue}" --output text)
     
     if [ -n "$FULL_ALIAS_ID" ]; then
         export BEDROCK_AGENT_ALIAS_ID=$(echo "$FULL_ALIAS_ID" | cut -d'|' -f2)
