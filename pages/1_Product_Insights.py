@@ -187,6 +187,8 @@ def get_best_selling_by_category(top_n=10):
     """
     # TO-DO
     """
+    query = get_best_selling_by_category.__doc__
+    return execute_db_query(query, (top_n,))
 
 def get_spending_habits():
     """
