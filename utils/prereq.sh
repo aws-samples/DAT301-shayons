@@ -96,6 +96,11 @@ function git_clone()
     python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; return 1; }
     deactivate
 
+    echo "venv-blaize-bazaar/" >> .gitignore
+    echo ".env" >> .gitignore
+    echo "*.log" >> .gitignore
+    echo "__pycache__/" >> .gitignore
+
     echo "Successfully set up virtual environment and installed requirements"
 }
 
