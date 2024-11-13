@@ -57,7 +57,7 @@ AWS_REGION=${AWS_REGION}
 BEDROCK_CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
 BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
 
-# Lambda
+# Lambda configuration
 Note: Don't change this value
 LAMBDA_FUNCTION_NAME=genai-dat-301-labs_BedrockAgent_Lambda
 EOL
