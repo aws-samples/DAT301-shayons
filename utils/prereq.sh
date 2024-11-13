@@ -48,10 +48,12 @@ DB_NAME=${PGDATABASE}
 DB_USER=${PGUSER}
 DB_PASSWORD=${PGPASSWORD}
     
-# AWS configuration, replace S3  KB bucket placeholder value with actual value from your CloudFormation output
-# Note: Don't change this value
+# AWS configuration
+# Note: Don't change these values
 AWS_REGION=${AWS_REGION}
 
+# Bedrock configuration
+# Note: Don't change these values
 BEDROCK_CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
 BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
 
