@@ -422,7 +422,7 @@ function set_bedrock_env_vars() {
     # Write variables to .bashrc
     echo "Writing variables to .bashrc..."
     {
-        echo "# Bedrock and S3 environment variables"
+        echo "# Bedrock KB and S3 environment variables"
         echo "export S3_KB_BUCKET='${S3_KB_BUCKET}'"
         echo "export BEDROCK_KB_ID='${BEDROCK_KB_ID}'"
         echo "export BEDROCK_AGENT_ID='${BEDROCK_AGENT_ID}'"
