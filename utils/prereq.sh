@@ -391,39 +391,76 @@ function activate_venv()
 function set_bedrock_env_vars() {
     echo "Setting Bedrock and S3 environment variables from CloudFormation outputs..."
     
-    # Get values from CloudFormation outputs using fixed stack name
-    export S3_KB_BUCKET=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockS3Bucket')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_KB_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockKnowledgeBaseId')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_AGENT_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentId')][].{OutputValue:OutputValue}" --output text)
+    # First, find the correct stack name
+    STACK_NAME=$(aws cloudformation describe-stacks --query 'Stacks[?Contains(StackName, `genai-dat-301-labs`)].StackName' --output text)
     
-    # Get full alias ID and extract the actual alias part (after the |)
-    local FULL_ALIAS_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentAliasId')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_AGENT_ALIAS_ID=$(echo $FULL_ALIAS_ID | cut -d'|' -f2)
-    
-    # Verify all variables were set
-    if [ -z "$S3_KB_BUCKET" ] || [ -z "$BEDROCK_KB_ID" ] || [ -z "$BEDROCK_AGENT_ID" ] || [ -z "$BEDROCK_AGENT_ALIAS_ID" ]; then
-        echo "Warning: One or more CloudFormation outputs could not be retrieved"
-        echo "S3_KB_BUCKET: ${S3_KB_BUCKET}"
-        echo "BEDROCK_KB_ID: ${BEDROCK_KB_ID}"
-        echo "BEDROCK_AGENT_ID: ${BEDROCK_AGENT_ID}"
-        echo "BEDROCK_AGENT_ALIAS_ID: ${BEDROCK_AGENT_ALIAS_ID}"
+    if [ -z "$STACK_NAME" ]; then
+        echo "Error: Could not find CloudFormation stack containing 'genai-dat-301-labs'"
         return 1
     fi
     
-    # Persist values for future sessions in .bashrc
-    echo "# Bedrock and S3 environment variables" >> /home/ec2-user/.bashrc
-    echo "export S3_KB_BUCKET='${S3_KB_BUCKET}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_KB_ID='${BEDROCK_KB_ID}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_AGENT_ID='${BEDROCK_AGENT_ID}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_AGENT_ALIAS_ID='${BEDROCK_AGENT_ALIAS_ID}'" >> /home/ec2-user/.bashrc
+    echo "Found stack: $STACK_NAME"
     
-    # Update the .env file with these values
-    sed -i "s|S3_KB_BUCKET=.*|S3_KB_BUCKET=${S3_KB_BUCKET}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_KB_ID=.*|BEDROCK_KB_ID=${BEDROCK_KB_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_AGENT_ID=.*|BEDROCK_AGENT_ID=${BEDROCK_AGENT_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_AGENT_ALIAS_ID=.*|BEDROCK_AGENT_ALIAS_ID=${BEDROCK_AGENT_ALIAS_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
+    # Get values from CloudFormation outputs using discovered stack name
+    export S3_KB_BUCKET=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+        --query "Stacks[0].Outputs[?OutputKey=='BedrockS3Bucket'].OutputValue" --output text)
     
-    echo "Environment variables set and persisted successfully"
+    export BEDROCK_KB_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+        --query "Stacks[0].Outputs[?OutputKey=='BedrockKnowledgeBaseId'].OutputValue" --output text)
+    
+    export BEDROCK_AGENT_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+        --query "Stacks[0].Outputs[?OutputKey=='BedrockAgentId'].OutputValue" --output text)
+    
+    # Get full alias ID and extract the actual alias part
+    local FULL_ALIAS_ID=$(aws cloudformation describe-stacks --stack-name "$STACK_NAME" \
+        --query "Stacks[0].Outputs[?OutputKey=='BedrockAgentAliasId'].OutputValue" --output text)
+    
+    if [ -n "$FULL_ALIAS_ID" ]; then
+        export BEDROCK_AGENT_ALIAS_ID=$(echo "$FULL_ALIAS_ID" | cut -d'|' -f2)
+    fi
+    
+    # Verify all variables were set
+    if [ -z "$S3_KB_BUCKET" ] || [ -z "$BEDROCK_KB_ID" ] || [ -z "$BEDROCK_AGENT_ID" ] || [ -z "$BEDROCK_AGENT_ALIAS_ID" ]; then
+        echo "Error: One or more required variables could not be retrieved:"
+        echo "S3_KB_BUCKET: ${S3_KB_BUCKET:-NOT SET}"
+        echo "BEDROCK_KB_ID: ${BEDROCK_KB_ID:-NOT SET}"
+        echo "BEDROCK_AGENT_ID: ${BEDROCK_AGENT_ID:-NOT SET}"
+        echo "BEDROCK_AGENT_ALIAS_ID: ${BEDROCK_AGENT_ALIAS_ID:-NOT SET}"
+        return 1
+    fi
+    
+    # Write variables to .bashrc
+    echo "Writing variables to .bashrc..."
+    {
+        echo "# Bedrock and S3 environment variables"
+        echo "export S3_KB_BUCKET='${S3_KB_BUCKET}'"
+        echo "export BEDROCK_KB_ID='${BEDROCK_KB_ID}'"
+        echo "export BEDROCK_AGENT_ID='${BEDROCK_AGENT_ID}'"
+        echo "export BEDROCK_AGENT_ALIAS_ID='${BEDROCK_AGENT_ALIAS_ID}'"
+    } >> ~/.bashrc
+    
+    # Append to the .env file if it exists
+    ENV_FILE="${HOME}/environment/${PROJ_NAME}/.env"
+    if [ -f "$ENV_FILE" ]; then
+        echo "Appending Bedrock and S3 variables to .env file..."
+        {
+            echo ""
+            echo "# Bedrock and S3 configuration"
+            echo "S3_KB_BUCKET=${S3_KB_BUCKET}"
+            echo "BEDROCK_KB_ID=${BEDROCK_KB_ID}"
+            echo "BEDROCK_AGENT_ID=${BEDROCK_AGENT_ID}"
+            echo "BEDROCK_AGENT_ALIAS_ID=${BEDROCK_AGENT_ALIAS_ID}"
+        } >> "$ENV_FILE"
+        
+        echo "Variables successfully appended to .env file"
+    else
+        echo "Warning: .env file not found at $ENV_FILE"
+    fi
+    
+    # Source the updated .bashrc to make variables available immediately
+    source ~/.bashrc
+    
+    echo "Environment variables set and persisted successfully:"
     echo "S3_KB_BUCKET: ${S3_KB_BUCKET}"
     echo "BEDROCK_KB_ID: ${BEDROCK_KB_ID}"
     echo "BEDROCK_AGENT_ID: ${BEDROCK_AGENT_ID}"
