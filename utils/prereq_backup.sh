@@ -51,10 +51,17 @@ DB_PASSWORD=${PGPASSWORD}
 # AWS configuration, replace S3  KB bucket placeholder value with actual value from your CloudFormation output
 # Note: Don't change this value
 AWS_REGION=${AWS_REGION}
+# Note: Replace this value with actual value from your CloudFormation output
+S3_KB_BUCKET=your_knowledge_base_bucket_here
 
+# Bedrock configuration
+# Note: Don't change these values
 BEDROCK_CLAUDE_MODEL_ID=anthropic.claude-3-5-sonnet-20240620-v1:0
 BEDROCK_CLAUDE_MODEL_ARN=arn:aws:bedrock:us-west-2::foundation-model/anthropic.claude-3-5-sonnet-20240620-v1:0
-
+# Note: Replace these placeholder values with actual values from your CloudFormation output
+BEDROCK_KB_ID=your_knowledge_base_id_here
+BEDROCK_AGENT_ID=your_agent_id_here
+BEDROCK_AGENT_ALIAS_ID=your_agent_alias_id_here
 # Lambda
 Note: Don't change this value
 LAMBDA_FUNCTION_NAME=genai-dat-301-labs_BedrockAgent_Lambda
@@ -386,48 +393,6 @@ function activate_venv()
     fi
 }
 
-function set_bedrock_env_vars() {
-    echo "Setting Bedrock and S3 environment variables from CloudFormation outputs..."
-    
-    # Get values from CloudFormation outputs using fixed stack name
-    export S3_KB_BUCKET=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockS3Bucket')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_KB_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockKnowledgeBaseId')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_AGENT_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentId')][].{OutputValue:OutputValue}" --output text)
-    
-    # Get full alias ID and extract the actual alias part (after the |)
-    local FULL_ALIAS_ID=$(aws cloudformation describe-stacks --stack-name genai-dat-301-labs --query "Stacks[].Outputs[?(OutputKey == 'BedrockAgentAliasId')][].{OutputValue:OutputValue}" --output text)
-    export BEDROCK_AGENT_ALIAS_ID=$(echo $FULL_ALIAS_ID | cut -d'|' -f2)
-    
-    # Verify all variables were set
-    if [ -z "$S3_KB_BUCKET" ] || [ -z "$BEDROCK_KB_ID" ] || [ -z "$BEDROCK_AGENT_ID" ] || [ -z "$BEDROCK_AGENT_ALIAS_ID" ]; then
-        echo "Warning: One or more CloudFormation outputs could not be retrieved"
-        echo "S3_KB_BUCKET: ${S3_KB_BUCKET}"
-        echo "BEDROCK_KB_ID: ${BEDROCK_KB_ID}"
-        echo "BEDROCK_AGENT_ID: ${BEDROCK_AGENT_ID}"
-        echo "BEDROCK_AGENT_ALIAS_ID: ${BEDROCK_AGENT_ALIAS_ID}"
-        return 1
-    fi
-    
-    # Persist values for future sessions in .bashrc
-    echo "# Bedrock and S3 environment variables" >> /home/ec2-user/.bashrc
-    echo "export S3_KB_BUCKET='${S3_KB_BUCKET}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_KB_ID='${BEDROCK_KB_ID}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_AGENT_ID='${BEDROCK_AGENT_ID}'" >> /home/ec2-user/.bashrc
-    echo "export BEDROCK_AGENT_ALIAS_ID='${BEDROCK_AGENT_ALIAS_ID}'" >> /home/ec2-user/.bashrc
-    
-    # Update the .env file with these values
-    sed -i "s|S3_KB_BUCKET=.*|S3_KB_BUCKET=${S3_KB_BUCKET}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_KB_ID=.*|BEDROCK_KB_ID=${BEDROCK_KB_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_AGENT_ID=.*|BEDROCK_AGENT_ID=${BEDROCK_AGENT_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    sed -i "s|BEDROCK_AGENT_ALIAS_ID=.*|BEDROCK_AGENT_ALIAS_ID=${BEDROCK_AGENT_ALIAS_ID}|g" "${HOME}/environment/${PROJ_NAME}/.env"
-    
-    echo "Environment variables set and persisted successfully"
-    echo "S3_KB_BUCKET: ${S3_KB_BUCKET}"
-    echo "BEDROCK_KB_ID: ${BEDROCK_KB_ID}"
-    echo "BEDROCK_AGENT_ID: ${BEDROCK_AGENT_ID}"
-    echo "BEDROCK_AGENT_ALIAS_ID: ${BEDROCK_AGENT_ALIAS_ID}"
-}
-
 function check_installation()
 {
     overall="True"
@@ -502,14 +467,6 @@ function check_installation()
         overall="False"
     fi
 
-    # Check Bedrock and S3 environment variables
-    if [ -n "$S3_KB_BUCKET" ] && [ -n "$BEDROCK_KB_ID" ] && [ -n "$BEDROCK_AGENT_ID" ] && [ -n "$BEDROCK_AGENT_ALIAS_ID" ]; then
-        echo "Bedrock and S3 environment variables : OK"
-    else
-        echo "Bedrock and S3 environment variables : NOTOK"
-        overall="False"
-    fi
-
     # Check Required Python Packages
     echo "Checking required Python packages..."
     source "${HOME}/environment/${PROJ_NAME}/venv-blaize-bazaar/bin/activate" &> /dev/null
@@ -581,8 +538,6 @@ print_line
 install_python3
 print_line
 git_clone
-print_line
-set_bedrock_env_vars
 print_line
 check_installation
 cp_logfile
