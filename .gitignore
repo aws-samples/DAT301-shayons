@@ -1,1 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+venv-*/
+*.egg
+*.egg-info/
+.env
+
+# Cloud9
+.c9/
+*.launch
+.settings/
+
+# Misc
 .DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+.coverage
+htmlcov/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# AWS
+.aws/
+.aws-sam/
