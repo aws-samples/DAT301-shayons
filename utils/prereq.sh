@@ -85,6 +85,39 @@ function git_clone()
     # Change to the newly cloned repository directory
     cd "$repo_name" || { echo "Failed to change directory to $repo_name"; return 1; }
 
+    # Create .gitignore file
+    echo "Creating .gitignore file..."
+    cat > .gitignore << 'EOL'
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+venv-*/
+*.egg
+*.egg-info/
+.env
+# Cloud9
+.c9/
+*.launch
+.settings/
+# Misc
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+.coverage
+htmlcov/
+.pytest_cache/
+.ipynb_checkpoints/
+# AWS
+.aws/
+.aws-sam/
+EOL
+
     # Create .env file
     create_env_file || { echo "Failed to create .env file"; return 1; }
 
@@ -95,11 +128,6 @@ function git_clone()
     source "./venv-blaize-bazaar/bin/activate" || { echo "Failed to activate virtual environment"; return 1; }
     python3 -m pip install -r requirements.txt || { echo "Failed to install requirements"; return 1; }
     deactivate
-
-    echo "venv-blaize-bazaar/" >> .gitignore
-    echo ".env" >> .gitignore
-    echo "*.log" >> .gitignore
-    echo "__pycache__/" >> .gitignore
 
     echo "Successfully set up virtual environment and installed requirements"
 }
