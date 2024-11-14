@@ -139,17 +139,6 @@ def main():
                 "What payment methods does Blaize Bazaar accept?"
             ),
         )
-    
-    st.write ("---")
-    
-    # Add version info
-    st.sidebar.divider()
-    st.sidebar.caption(f"""
-    Version: 1.0.0
-    Last Updated: {datetime.now().strftime('%Y-%m-%d')}
-    """)
-
-    st.sidebar.image("static/Powered-By_logo-stack_RGB_REV.png", width=150)
 
     with tab1:
         # Create a container for the chat history
@@ -214,8 +203,6 @@ def main():
 
     with tab2:
         st.image('static/knowledge-base-rag-architecture.png', use_container_width=True)
-    
-    st.divider()
     
     # Add version info
     st.sidebar.divider()
