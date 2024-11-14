@@ -1,3 +1,22 @@
+# Solutions Guide: Product Insights 🎯
+> This guide provides detailed solutions and explanations for exercises and challenges in the workshop.
+
+1. **Get best selling products by category**
+```python
+def get_best_selling_by_category(top_n=10):
+    """
+    SELECT DISTINCT ON (category_name) 
+        category_name, product_description, boughtinlastmonth
+    FROM bedrock_integration.product_catalog
+    ORDER BY category_name, boughtinlastmonth DESC
+    LIMIT %s
+    """
+    query = get_best_selling_by_category.__doc__
+    return execute_db_query(query, (top_n,))
+```
+
+2. **(OPTIONAL) Challenge Exercise: Extending the Search**
+```sql
 -- Original query:
 SELECT "productId", product_description, 
        1 - (embedding <=> %s::vector) AS similarity
@@ -56,3 +75,4 @@ WHERE
 ORDER BY 
     p.embedding <=> %s::vector
 LIMIT %s;
+```
