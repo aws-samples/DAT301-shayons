@@ -138,6 +138,9 @@ with tab1:
 
                 st.feedback("thumbs")
 
+with tab2:
+    st.image('static/bedrock-agent-architecture.png', use_container_width=True)
+
 trace_type_headers = {
     "preProcessingTrace": "Pre-Processing",
     "orchestrationTrace": "Orchestration",
