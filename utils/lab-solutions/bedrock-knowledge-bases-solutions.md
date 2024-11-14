@@ -1,4 +1,4 @@
-# Solutions Guide: Knowledge Base-Powered Chat System 🤖
+# Solutions Guide: Bedrock Knowledge Bases 🎯
 > This guide provides detailed solutions and explanations for all exercises and challenges in the workshop.
 
 ## Part 3: Enhanced Prompt Templates
