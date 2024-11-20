@@ -2,7 +2,7 @@
 
 Welcome to DAT301! The integration of embeddings generated from LLMs for [Amazon Aurora PostgreSQL-Compatible Edition](https://aws.amazon.com/rds/aurora/) and [Amazon RDS for PostgreSQL](https://aws.amazon.com/rds/postgresql/) presents a powerful and efficient solution for optimizing the product catalog similarity search experience. By using foundation models and vector embeddings, businesses can enhance the accuracy and speed of similarity searches by using [Retrieval Augmented Generation (RAG)](https://aws.amazon.com/what-is/retrieval-augmented-generation/), which ultimately leads to improved user satisfaction and a more personalized experience.
 
-![Workshop Banner](static/dat301_intro.png)
+<!--![Workshop Banner](static/dat301_intro.png)-->
 
 ## Workshop Overview
 
