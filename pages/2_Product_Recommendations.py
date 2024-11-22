@@ -8,6 +8,7 @@ import boto3
 import json
 import base64
 from botocore.exceptions import ClientError
+from botocore.config import Config
 from datetime import datetime
 import time
 import hashlib
@@ -16,7 +17,19 @@ import hashlib
 load_dotenv()
 
 # Initialize Bedrock client
-bedrock = boto3.client(service_name='bedrock-runtime')
+config = Config(
+    region_name='us-west-2',
+    retries={
+        'max_attempts': 3,
+        'mode': 'standard'
+    }
+)
+   
+bedrock = boto3.client(
+    service_name='bedrock-runtime',
+    region_name='us-west-2',
+    config=config
+)
 
 # Constants and configurations
 LOGO_URL = "static/Blaize.png"
