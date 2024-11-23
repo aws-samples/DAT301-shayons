@@ -60,7 +60,7 @@ def init_user_tables():
                 );
             """)
             
-            # Create simplified user preferences table with unique constraint on user_id
+            # Create user preferences table with unique constraint on user_id
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS bedrock_integration.user_preferences (
                     preference_id SERIAL PRIMARY KEY,
