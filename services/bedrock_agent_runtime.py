@@ -7,7 +7,7 @@ def invoke_agent(agent_id, agent_alias_id, session_id, prompt):
         region = os.environ.get('AWS_REGION', 'us-west-2')
         client = boto3.session.Session(region_name=region).client(service_name="bedrock-agent-runtime")
         # See https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agent-runtime/client/invoke_agent.html
-        response = client.invoke_agent(s
+        response = client.invoke_agent(
             agentId=agent_id,
             agentAliasId=agent_alias_id,
             enableTrace=True,
