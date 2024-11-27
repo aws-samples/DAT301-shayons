@@ -64,7 +64,7 @@ with st.sidebar:
                 "Our Scotch Heavy Duty Packaging (Product Id = B000087KUA) stock is getting low. What can we do about that?",
                 "Can we place an order for more of our bestselling game Grand Theft Auto (Product Id = B0007TS24U)?",
                 "I'm concerned about our newly listed Electronic Arcade Claw Machine (Product Id = B000KS52D2) supply. Can we address that?",
-                "Can you get me pricing info on The League of Extraordinary Gentlemen (Product Id = B000A3XYE6)?",
+                "Can you get me pricing info on The Art of Shaving Pre Shave Beard Oil (Product Id = B000ZLZMRA)?",
                 "How much would a customer pay for Taylor Battery Free Analog Scales for Body Weight (Product Id = B001FWXFNQ)?"
             ),
         )
