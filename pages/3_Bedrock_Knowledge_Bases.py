@@ -247,7 +247,7 @@ with st.sidebar:
                     FunctionName=function_name,
                     InvocationType='Event'
                 )
-                st.info(f"Lambda function {function_name} triggered for KB sync.")
+                st.info(f"Lambda function triggered for KB sync.")
             except Exception as e:
                 st.error(f"Error invoking Lambda function: {str(e)}")
             
